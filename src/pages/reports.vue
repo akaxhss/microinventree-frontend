@@ -1,0 +1,69 @@
+<template>
+  <div>
+    <ModernHeader />
+    <div class="reporting-container">
+      <h2 class="page-title">Reports</h2>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab"
+          :class="['tab', { active: activeTab === tab }]"
+          @click="activeTab = tab"
+        >
+          {{ tab }}
+        </button>
+      </div>
+
+      <!-- Child -->
+      <InvoiceByCustomer v-if="activeTab === 'Invoice by Customer'" />
+      <ReportsOfProducts v-if="activeTab === 'Reports of Products'" />
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref } from "vue";
+import ModernHeader from "../components/header.vue";
+import InvoiceByCustomer from "./child/InvoiceByCustomer.vue";
+import ReportsOfProducts from "./child/ReportsOfProducts.vue";
+
+const tabs = ["Invoice by Customer", "Reports of Products"];
+const activeTab = ref("Invoice by Customer");
+</script>
+
+<style scoped>
+.reporting-container {
+  max-width: 1100px;
+  margin: 40px auto;
+  padding: 20px;
+  background: #f9fafb;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  font-family: "Segoe UI", sans-serif;
+}
+.page-title {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.tab {
+  padding: 10px 16px;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+  background: #e5e7eb;
+  font-weight: 600;
+}
+.tab.active {
+  background: #2563eb;
+  color: #fff;
+}
+</style>
