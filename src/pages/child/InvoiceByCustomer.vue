@@ -25,13 +25,13 @@
       <button @click="exportPDF(customerReport)">Export All PDF</button>
     </div>
 
-    <!-- Collapsible Invoice List -->
-    <div v-if="customerReport.length" class="invoice-list">
-      <div v-for="invoice in customerReport" :key="invoice.id" class="invoice-card">
+    <!-- Packing Slips -->
+    <div v-if="customerReport.length" class="slip-list">
+      <div v-for="invoice in customerReport" :key="invoice.id" class="slip-card">
         <!-- Header -->
-        <div class="invoice-header" @click="toggleInvoice(invoice.id)">
+        <div class="slip-header" @click="toggleInvoice(invoice.id)">
           <div>
-            <h3>#{{ invoice.invoice_number }}</h3>
+            <h3>Packing Slip #{{ invoice.invoice_number }}</h3>
             <p>{{ formatDate(invoice.date) }}</p>
           </div>
           <div class="customer-info">
@@ -39,7 +39,7 @@
             <p>{{ invoice.customer.contact }}</p>
           </div>
 
-          <!-- Right Side: Export Buttons -->
+          <!-- Export per slip -->
           <div class="export-icons" @click.stop>
             <button class="icon-btn" @click="exportSingleExcel(invoice)">📊</button>
             <button class="icon-btn" @click="exportSinglePDF(invoice)">📄</button>
@@ -47,35 +47,41 @@
           </div>
         </div>
 
-        <!-- Expanded Details -->
-        <div v-if="expandedInvoice === invoice.id" class="invoice-details">
-          <table>
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Color</th>
-                <th>Size</th>
-                <th>Quantity</th>
-                <th>Unit Price</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="line in invoice.lines" :key="line.id">
-                <td>{{ line.variant.product }}</td>
-                <td>{{ line.variant.color.name }}</td>
-                <td>{{ line.size.display_name }}</td>
-                <td>{{ line.quantity }}</td>
-                <td>₹{{ line.unit_price }}</td>
-                <td>₹{{ (line.quantity * parseFloat(line.unit_price)).toFixed(2) }}</td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Grouped Details -->
+        <div v-if="expandedInvoice === invoice.id" class="slip-details">
+          <div
+            v-for="(group, productName) in groupByProduct(invoice.lines)"
+            :key="productName"
+            class="product-block"
+          >
+            <h4 class="product-title">{{ productName }}</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>Color</th>
+                  <th v-for="size in sizeHeaders" :key="size">{{ size }}</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="variant in group.rows" :key="variant.color">
+                  <td>{{ variant.color }}</td>
+                  <td v-for="size in sizeHeaders" :key="size">{{ variant.sizes[size] ?? 0 }}</td>
+                  <td>{{ variant.total }}</td>
+                </tr>
+                <tr class="grand-total">
+                  <td><strong>Grand Total</strong></td>
+                  <td v-for="size in sizeHeaders" :key="size"><strong>{{ group.totals[size] }}</strong></td>
+                  <td><strong>{{ group.grandTotal }}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
 
-    <p v-else>No invoices found</p>
+    <p v-else>No packing slips found</p>
   </div>
 </template>
 
@@ -95,6 +101,8 @@ const endDate = ref("");
 const customerReport = ref([]);
 const expandedInvoice = ref(null);
 
+const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL"];
+
 const toggleInvoice = (id) => {
   expandedInvoice.value = expandedInvoice.value === id ? null : id;
 };
@@ -103,6 +111,7 @@ const loadCustomers = async () => {
   const res = await axios.get("customers/");
   customerOptions.value = Array.isArray(res.data) ? res.data : [];
 };
+
 const fetchCustomerReport = async () => {
   if (!selectedCustomer.value) {
     alert("Please select a customer");
@@ -117,86 +126,131 @@ const fetchCustomerReport = async () => {
   });
   customerReport.value = res.data;
 };
+
 const formatDate = (d) => new Date(d).toLocaleDateString();
 
-// Bulk Export
-const exportExcel = (data) => {
-  const workbook = XLSX.utils.book_new();
-  data.forEach((inv) => {
-    const rows = inv.lines.map((line) => ({
-      Invoice: inv.invoice_number,
-      Date: formatDate(inv.date),
-      Customer: inv.customer.name,
-      Contact: inv.customer.contact,
-      Product: line.variant.product,
-      Color: line.variant.color.name,
-      Size: line.size.display_name,
-      Quantity: line.quantity,
-      "Unit Price": line.unit_price,
-      Total: (line.quantity * parseFloat(line.unit_price)).toFixed(2),
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(workbook, ws, `Invoice_${inv.invoice_number}`);
+const groupByProduct = (lines) => {
+  const grouped = {};
+  lines.forEach((line) => {
+    const product = line.variant.product;
+    const color = line.variant.color.name;
+    const size = line.size.display_name || line.size.code;
+
+    if (!grouped[product]) grouped[product] = {};
+    if (!grouped[product][color]) grouped[product][color] = { color, sizes: {}, total: 0 };
+
+    grouped[product][color].sizes[size] =
+      (grouped[product][color].sizes[size] || 0) + line.quantity;
+
+    grouped[product][color].total += line.quantity;
   });
-  XLSX.writeFile(workbook, "AllInvoices.xlsx");
+
+  const result = {};
+  Object.keys(grouped).forEach((prod) => {
+    const rows = Object.values(grouped[prod]);
+    const totals = {};
+    let grandTotal = 0;
+    sizeHeaders.forEach((s) => {
+      totals[s] = rows.reduce((acc, r) => acc + (r.sizes[s] || 0), 0);
+      grandTotal += totals[s];
+    });
+    result[prod] = { rows, totals, grandTotal };
+  });
+
+  return result;
 };
+
+// Export Functions
+// ---- Export Functions ----
+const exportExcel = (data) => {
+  const wb = XLSX.utils.book_new();
+
+  data.forEach((inv) => {
+    const wsData = [];
+    const grouped = groupByProduct(inv.lines);
+
+    Object.keys(grouped).forEach((prod) => {
+      const group = grouped[prod];
+
+      // Product heading row
+      wsData.push([`${prod} (${inv.invoice_number})`]);
+
+      // Header row
+      wsData.push(["Color", ...sizeHeaders, "Total"]);
+
+      // Color rows
+      group.rows.forEach((r) => {
+        wsData.push([
+          r.color,
+          ...sizeHeaders.map((s) => r.sizes[s] || 0),
+          r.total,
+        ]);
+      });
+
+      // Grand total row
+      wsData.push([
+        "Grand Total",
+        ...sizeHeaders.map((s) => group.totals[s]),
+        group.grandTotal,
+      ]);
+
+      // Blank row between products
+      wsData.push([]);
+    });
+
+    // Convert wsData → worksheet
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(
+      wb,
+      ws,
+      `Slip_${inv.invoice_number}`
+    );
+  });
+
+  XLSX.writeFile(wb, "PackingSlips.xlsx");
+};
+
+
 const exportPDF = (data) => {
   const doc = new jsPDF();
   data.forEach((inv, idx) => {
     if (idx > 0) doc.addPage();
     doc.setFontSize(16);
-    doc.text("INVOICE", 90, 20);
-    doc.text(`Invoice Number: ${inv.invoice_number}`, 14, 35);
+    doc.text("Packing Slip", 90, 20);
+    doc.text(`Slip #: ${inv.invoice_number}`, 14, 35);
     doc.text(`Date: ${formatDate(inv.date)}`, 14, 45);
     doc.text(`Customer: ${inv.customer.name}`, 14, 55);
     doc.text(`Contact: ${inv.customer.contact}`, 14, 65);
-    const rows = inv.lines.map((line) => [
-      line.variant.product,
-      line.variant.color.name,
-      line.size.display_name,
-      line.quantity,
-      line.unit_price,
-      (line.quantity * parseFloat(line.unit_price)).toFixed(2),
-    ]);
-    autoTable(doc, { head: [["Product","Color","Size","Qty","Unit Price","Total"]], body: rows, startY: 80 });
+
+    const grouped = groupByProduct(inv.lines);
+    let y = 80;
+    Object.keys(grouped).forEach((prod) => {
+      doc.text(`${prod}`, 14, y);
+      y += 6;
+      const group = grouped[prod];
+      const rows = group.rows.map((r) => [
+        r.color,
+        ...sizeHeaders.map((s) => r.sizes[s] || 0),
+        r.total,
+      ]);
+      rows.push([
+        "Grand Total",
+        ...sizeHeaders.map((s) => group.totals[s]),
+        group.grandTotal,
+      ]);
+      autoTable(doc, {
+        head: [["Color", ...sizeHeaders, "Total"]],
+        body: rows,
+        startY: y,
+      });
+      y = doc.lastAutoTable.finalY + 15;
+    });
   });
-  doc.save("AllInvoices.pdf");
+  doc.save("PackingSlips.pdf");
 };
 
-// Single Invoice
-const exportSingleExcel = (invoice) => {
-  const rows = invoice.lines.map((line) => ({
-    Product: line.variant.product,
-    Color: line.variant.color.name,
-    Size: line.size.display_name,
-    Quantity: line.quantity,
-    "Unit Price": line.unit_price,
-    Total: (line.quantity * parseFloat(line.unit_price)).toFixed(2),
-  }));
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, `Invoice_${invoice.invoice_number}`);
-  XLSX.writeFile(wb, `Invoice_${invoice.invoice_number}.xlsx`);
-};
-const exportSinglePDF = (invoice) => {
-  const doc = new jsPDF();
-  doc.setFontSize(18);
-  doc.text("INVOICE", 90, 20);
-  doc.text(`Invoice Number: ${invoice.invoice_number}`, 14, 40);
-  doc.text(`Date: ${formatDate(invoice.date)}`, 14, 50);
-  doc.text(`Customer: ${invoice.customer.name}`, 14, 65);
-  doc.text(`Contact: ${invoice.customer.contact}`, 14, 75);
-  const rows = invoice.lines.map((line) => [
-    line.variant.product,
-    line.variant.color.name,
-    line.size.display_name,
-    line.quantity,
-    line.unit_price,
-    (line.quantity * parseFloat(line.unit_price)).toFixed(2),
-  ]);
-  autoTable(doc, { head: [["Product","Color","Size","Qty","Unit Price","Total"]], body: rows, startY: 90 });
-  doc.save(`Invoice_${invoice.invoice_number}.pdf`);
-};
+const exportSingleExcel = (invoice) => exportExcel([invoice]);
+const exportSinglePDF = (invoice) => exportPDF([invoice]);
 
 onMounted(loadCustomers);
 </script>
@@ -206,26 +260,22 @@ onMounted(loadCustomers);
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  align-items: center;
   margin-bottom: 25px;
+  align-items: center;
 }
 .filters label {
   display: flex;
   flex-direction: column;
   font-size: 0.85rem;
-  font-weight: 500;
 }
 .filters input[type="date"] {
   width: 160px;
-  padding: 6px 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
 }
 .filters button {
   margin-left: auto;
   padding: 8px 14px;
   background: #10b981;
-  color: #fff;
+  color: white;
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -238,57 +288,44 @@ onMounted(loadCustomers);
 .export-buttons button {
   padding: 8px 14px;
   background: #2563eb;
-  color: #fff;
+  color: white;
   border: none;
   border-radius: 6px;
-  cursor: pointer;
 }
-.invoice-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-.invoice-card {
+.slip-card {
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-  overflow: hidden;
+  margin-bottom: 15px;
 }
-.invoice-header {
+.slip-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
+  padding: 12px;
   background: #f3f4f6;
   cursor: pointer;
 }
-.export-icons {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.slip-details {
+  padding: 10px;
 }
-.icon-btn {
-  border: none;
-  background: #e5e7eb;
-  border-radius: 50%;
-  padding: 6px;
-  cursor: pointer;
+.product-title {
+  font-weight: bold;
+  margin: 10px 0;
 }
-.invoice-details {
-  padding: 10px 16px;
-}
-.invoice-details table {
+table {
   width: 100%;
   border-collapse: collapse;
 }
-.invoice-details th,
-.invoice-details td {
+th, td {
+  border: 1px solid #e5e7eb;
   padding: 8px;
-  border-bottom: 1px solid #e5e7eb;
   text-align: center;
 }
-.invoice-details th {
+th {
   background: #f9fafb;
-  font-weight: 600;
+}
+.grand-total {
+  background: #fef3c7;
+  font-weight: bold;
 }
 </style>

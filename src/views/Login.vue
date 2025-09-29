@@ -6,22 +6,12 @@
       <form @submit.prevent="handleLogin">
         <div class="form-group">
           <label>Username</label>
-          <input
-            type="text"
-            v-model="username"
-            placeholder="Enter your username"
-            required
-          />
+          <input type="text" v-model="username" placeholder="Enter your username" required />
         </div>
 
         <div class="form-group">
           <label>Password</label>
-          <input
-            type="password"
-            v-model="password"
-            placeholder="Enter your password"
-            required
-          />
+          <input type="password" v-model="password" placeholder="Enter your password" required />
         </div>
 
         <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
@@ -35,43 +25,39 @@
 <script setup>
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import axios from "../plugins/axios.js";
 
 const username = ref("");
 const password = ref("");
 const errorMessage = ref("");
 const router = useRouter();
 
-const handleLogin = () => {
+const handleLogin = async () => {
   if (!username.value || !password.value) {
     errorMessage.value = "Both fields are required!";
     return;
   }
 
-  fetch("http://127.0.0.1:8000/api/token/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  try {
+    const res = await axios.post("token/", {
       username: username.value,
       password: password.value,
-    }),
-  })
-    .then((res) => {
-      if (!res.ok) throw new Error("Invalid credentials");
-      return res.json();
-    })
-    .then((data) => {
-      // Save tokens in localStorage
-      localStorage.setItem("accessToken", data.access);
-      localStorage.setItem("refreshToken", data.refresh);
-      localStorage.setItem("role", data.role || "User");
-      localStorage.setItem("username", data.username);
-
-      // Redirect to stock-items
-      router.push("/stock-items");
-    })
-    .catch((err) => {
-      errorMessage.value = err.message || "Login failed!";
     });
+
+    const data = res.data;
+
+    // Save tokens in localStorage
+    localStorage.setItem("accessToken", data.access);
+    localStorage.setItem("refreshToken", data.refresh);
+    localStorage.setItem("role", data.role || "User");
+    localStorage.setItem("username", data.username);
+
+    // Redirect to any
+    router.push("/home");
+  } catch (err) {
+    errorMessage.value =
+      err.response?.data?.detail || "Invalid credentials. Please try again.";
+  }
 };
 </script>
 
