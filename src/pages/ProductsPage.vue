@@ -1,80 +1,85 @@
 <template>
-  <div>
-    <!-- Modern Header -->
-    <ModernHeader />
+  <div class="layout">
+    <!-- Sidebar -->
+    <Sidebar />
 
-    <!-- Dashboard Container -->
-    <div class="dashboard-container">
-  
-      <h2 class="page-title">Products</h2>
+    <!-- Main Content -->
+    <div class="main-content">
+      <ModernHeader />
 
-      <!-- Products Table -->
-      <div class="table-wrapper">
-        <table class="modern-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>SKU</th>
-              <th>Name</th>
-              <th>Variants</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="product in products" :key="product.id" class="table-row">
-              <td>{{ product.id }}</td>
-              <td>{{ product.sku }}</td>
-              <td>{{ product.name }}</td>
-              <td>
-                <ul>
-                  <li v-for="variant in product.variants" :key="variant.id">
-                    {{ variant.color.name || 'N/A' }}
-                  </li>
-                </ul>
-              </td>
-              <td class="actions-cell">
-                <button class="action-btn delete" @click="deleteProduct(product.id)">Delete</button>
-              </td>
-            </tr>
-            <tr v-if="products.length === 0">
-              <td colspan="5" class="empty-state">
-                <div class="empty-content">
-                  <span class="empty-icon">📦</span>
-                  <p>No products available</p>
-                  <button class="add-first-btn" @click="showAddForm = true">Add First Product</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <!-- Dashboard Container -->
+      <div class="dashboard-container">
 
-      <!-- Add Product Modal -->
-      <div v-if="showAddForm" class="modal-overlay" @click="showAddForm = false">
-        <div class="modal-content" @click.stop>
-          <div class="modal-header">
-            <h3>Add New Product</h3>
-            <button class="close-btn" @click="showAddForm = false">×</button>
-          </div>
-          <form @submit.prevent="addProduct" class="modal-form">
-            <div class="form-group">
-              <label>Product Name</label>
-              <input v-model="newProductName" placeholder="Enter product name" class="form-input" required />
-            </div>
-            <div class="form-group">
-              <label>SKU</label>
-              <input v-model="newProductSKU" placeholder="Enter SKU" class="form-input" required />
-            </div>
-            <div class="form-actions">
-              <button type="button" class="btn-secondary" @click="showAddForm = false">Cancel</button>
-              <button type="submit" class="btn-primary">Add Product</button>
-            </div>
-          </form>
+        <h2 class="page-title">Products</h2>
+
+        <!-- Products Table -->
+        <div class="table-wrapper">
+          <table class="modern-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>SKU</th>
+                <th>Name</th>
+                <th>Variants</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="product in products" :key="product.id" class="table-row">
+                <td>{{ product.id }}</td>
+                <td>{{ product.sku }}</td>
+                <td>{{ product.name }}</td>
+                <td>
+                  <ul>
+                    <li v-for="variant in product.variants" :key="variant.id">
+                      {{ variant.color.name || 'N/A' }}
+                    </li>
+                  </ul>
+                </td>
+                <td class="actions-cell">
+                  <button class="action-btn delete" @click="deleteProduct(product.id)">Delete</button>
+                </td>
+              </tr>
+              <tr v-if="products.length === 0">
+                <td colspan="5" class="empty-state">
+                  <div class="empty-content">
+                    <span class="empty-icon">📦</span>
+                    <p>No products available</p>
+                    <button class="add-first-btn" @click="showAddForm = true">Add First Product</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </div>
 
-      <!-- Floating Add Button -->
-      <button class="floating-add-btn" @click="showAddForm = true">+</button>
+        <!-- Add Product Modal -->
+        <div v-if="showAddForm" class="modal-overlay" @click="showAddForm = false">
+          <div class="modal-content" @click.stop>
+            <div class="modal-header">
+              <h3>Add New Product</h3>
+              <button class="close-btn" @click="showAddForm = false">×</button>
+            </div>
+            <form @submit.prevent="addProduct" class="modal-form">
+              <div class="form-group">
+                <label>Product Name</label>
+                <input v-model="newProductName" placeholder="Enter product name" class="form-input" required />
+              </div>
+              <div class="form-group">
+                <label>SKU</label>
+                <input v-model="newProductSKU" placeholder="Enter SKU" class="form-input" required />
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-secondary" @click="showAddForm = false">Cancel</button>
+                <button type="submit" class="btn-primary">Add Product</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Floating Add Button -->
+        <button class="floating-add-btn" @click="showAddForm = true">+</button>
+      </div>
     </div>
   </div>
 </template>
@@ -83,6 +88,8 @@
 import { ref, onMounted } from 'vue';
 import axios from '../plugins/axios.js';
 import ModernHeader from '../components/header.vue';
+import Sidebar from '../components/Sidebar.vue';
+
 
 const products = ref([]);
 const newProductName = ref('');
@@ -128,6 +135,13 @@ onMounted(fetchProducts);
 </script>
 
 <style scoped>
+.main-content {
+  margin-left: 260px;
+  flex: 1;
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
 /* Dashboard Container */
 .dashboard-container {
   max-width: 1200px;
@@ -151,7 +165,7 @@ onMounted(fetchProducts);
   background: white;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .modern-table {
@@ -233,7 +247,7 @@ onMounted(fetchProducts);
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -246,7 +260,7 @@ onMounted(fetchProducts);
   border-radius: 12px;
   width: 90%;
   max-width: 500px;
-  box-shadow: 0 20px 25px rgba(0,0,0,0.1);
+  box-shadow: 0 20px 25px rgba(0, 0, 0, 0.1);
 }
 
 .modal-header {

@@ -1,126 +1,118 @@
 <template>
-  <div>
-    <!-- Modern Header -->
-    <ModernHeader />
+  <div class="layout">
+    <!-- Sidebar -->
+    <Sidebar />
 
-    <!-- Page Container -->
-    <div class="dashboard-container">
+    <!-- Main Content -->
+    <div class="main-content">
+      <ModernHeader />
 
-      
+      <!-- Page Container -->
+      <div class="dashboard-container">
 
-      <!-- Customers Table -->
-      <div class="table-wrapper">
-        <table class="modern-table">
-          <thead>
-            <tr>
-              <th>
-                <input type="checkbox" class="row-checkbox" @change="toggleAllCustomers">
-              </th>
-              <th>ID</th>
-              <th>Customer Name</th>
-              <th>Contact Info</th>
-             
-             
-             
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="customer in filteredCustomers" :key="customer.id" class="table-row">
-              <td>
-                <input type="checkbox" class="row-checkbox" :value="customer.id" v-model="selectedCustomers">
-              </td>
-              <td class="id-cell">{{ customer.id }}</td>
-              <td class="name-cell">
-                <div class="customer-display">
-                  <span class="customer-avatar">{{ getInitials(customer.name) }}</span>
-                  {{ customer.name }}
-                </div>
-              </td>
-              <td class="contact-cell">
-                <div v-if="customer.email || customer.contact">
-                  <div v-if="customer.email" class="contact-info">{{ customer.email }}</div>
-                  <div v-if="customer.contact" class="contact-info">{{ customer.contact }}</div>
+
+
+        <!-- Customers Table -->
+        <div class="table-wrapper">
+          <table class="modern-table">
+            <thead>
+              <tr>
+                <th>
+                  <input type="checkbox" class="row-checkbox" @change="toggleAllCustomers">
+                </th>
+                <th>ID</th>
+                <th>Customer Name</th>
+                <th>Contact Info</th>
+
+
+
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="customer in filteredCustomers" :key="customer.id" class="table-row">
+                <td>
+                  <input type="checkbox" class="row-checkbox" :value="customer.id" v-model="selectedCustomers">
+                </td>
+                <td class="id-cell">{{ customer.id }}</td>
+                <td class="name-cell">
+                  <div class="customer-display">
+                    <span class="customer-avatar">{{ getInitials(customer.name) }}</span>
+                    {{ customer.name }}
+                  </div>
+                </td>
+                <td class="contact-cell">
+                  <div v-if="customer.email || customer.contact">
+                    <div v-if="customer.email" class="contact-info">{{ customer.email }}</div>
+                    <div v-if="customer.contact" class="contact-info">{{ customer.contact }}</div>
+                    <div v-else class="contact-info">Not provided</div>
+                  </div>
                   <div v-else class="contact-info">Not provided</div>
-                </div>
-                <div v-else class="contact-info">Not provided</div>
-              </td>
-             
-             
-            
-              <td class="actions-cell">
-                <button class="action-btn edit" @click="editCustomer(customer)">Edit</button>
-               
-                <button class="action-btn delete" @click="deleteCustomer(customer.id)">Delete</button>
-              </td>
-            </tr>
-            <tr v-if="filteredCustomers.length === 0">
-              <td colspan="9" class="empty-state">
-                <div class="empty-content">
-                  <span class="empty-icon">👥</span>
-                  <p>No customers available</p>
-                  <button class="add-first-btn" @click="showAddForm = true">Add First Customer</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                </td>
 
-      <!-- Bulk Actions -->
-      <div v-if="selectedCustomers.length > 0" class="bulk-actions">
-        <span>{{ selectedCustomers.length }} customer(s) selected</span>
-        <button class="bulk-delete-btn" @click="deleteSelectedCustomers">Delete Selected</button>
-      </div>
 
-      <!-- Add Customer Modal -->
-      <div v-if="showAddForm" class="modal-overlay" @click="showAddForm = false">
-        <div class="modal-content" @click.stop>
-          <div class="modal-header">
-            <h3>Add New Customer</h3>
-            <button class="close-btn" @click="showAddForm = false">×</button>
-          </div>
-          <form @submit.prevent="addCustomer" class="modal-form">
-            <div class="form-group">
-              <label>Customer Name *</label>
-              <input 
-                v-model="newCustomer.name" 
-                placeholder="Enter customer name" 
-                class="form-input" 
-                required
-                maxlength="100"
-              >
-            </div>
-           
-            <div class="form-group">
-              <label>Phone Number</label>
-              <input 
-                v-model="newCustomer.phone" 
-                placeholder="+91 999" 
-                class="form-input"
-              >
-            </div>
-            <div class="form-group">
-              <label>Address</label>
-              <textarea 
-                v-model="newCustomer.address" 
-                placeholder="Enter customer address" 
-                class="form-input textarea"
-                rows="3"
-              ></textarea>
-            </div>
-            <div class="form-actions">
-              <button type="button" class="btn-secondary" @click="showAddForm = false">Cancel</button>
-              <button type="submit" class="btn-primary">Add Customer</button>
-            </div>
-          </form>
+
+                <td class="actions-cell">
+                  <button class="action-btn edit" @click="editCustomer(customer)">Edit</button>
+
+                  <button class="action-btn delete" @click="deleteCustomer(customer.id)">Delete</button>
+                </td>
+              </tr>
+              <tr v-if="filteredCustomers.length === 0">
+                <td colspan="9" class="empty-state">
+                  <div class="empty-content">
+                    <span class="empty-icon">👥</span>
+                    <p>No customers available</p>
+                    <button class="add-first-btn" @click="showAddForm = true">Add First Customer</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </div>
 
-      <!-- Floating Add Button -->
-      <button class="floating-add-btn" @click="showAddForm = true" title="Add New Customer">
-        <span>+</span>
-      </button>
+        <!-- Bulk Actions -->
+        <div v-if="selectedCustomers.length > 0" class="bulk-actions">
+          <span>{{ selectedCustomers.length }} customer(s) selected</span>
+          <button class="bulk-delete-btn" @click="deleteSelectedCustomers">Delete Selected</button>
+        </div>
+
+        <!-- Add Customer Modal -->
+        <div v-if="showAddForm" class="modal-overlay" @click="showAddForm = false">
+          <div class="modal-content" @click.stop>
+            <div class="modal-header">
+              <h3>Add New Customer</h3>
+              <button class="close-btn" @click="showAddForm = false">×</button>
+            </div>
+            <form @submit.prevent="addCustomer" class="modal-form">
+              <div class="form-group">
+                <label>Customer Name *</label>
+                <input v-model="newCustomer.name" placeholder="Enter customer name" class="form-input" required
+                  maxlength="100">
+              </div>
+
+              <div class="form-group">
+                <label>Phone Number</label>
+                <input v-model="newCustomer.phone" placeholder="+91 999" class="form-input">
+              </div>
+              <div class="form-group">
+                <label>Address</label>
+                <textarea v-model="newCustomer.address" placeholder="Enter customer address" class="form-input textarea"
+                  rows="3"></textarea>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-secondary" @click="showAddForm = false">Cancel</button>
+                <button type="submit" class="btn-primary">Add Customer</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Floating Add Button -->
+        <button class="floating-add-btn" @click="showAddForm = true" title="Add New Customer">
+          <span>+</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -129,6 +121,7 @@
 import { ref, onMounted, computed } from 'vue';
 import axios from '../plugins/axios.js';
 import ModernHeader from '../components/header.vue';
+import Sidebar from '../components/Sidebar.vue';
 
 const customers = ref([]);
 const selectedCustomers = ref([]);
@@ -146,9 +139,9 @@ const filteredCustomers = computed(() => {
   if (!searchQuery.value.trim()) {
     return customers.value;
   }
-  
+
   const query = searchQuery.value.toLowerCase();
-  return customers.value.filter(customer => 
+  return customers.value.filter(customer =>
     customer.name.toLowerCase().includes(query) ||
     (customer.email && customer.email.toLowerCase().includes(query)) ||
     (customer.phone && customer.phone.includes(query))
@@ -166,15 +159,15 @@ const fetchCustomers = async () => {
 
 const addCustomer = async () => {
   if (!newCustomer.value.name.trim()) return;
-  
+
   try {
-    const res = await axios.post('customers/', { 
+    const res = await axios.post('customers/', {
       name: newCustomer.value.name.trim(),
-     
+
       contact: newCustomer.value.phone.trim() || null,
       address: newCustomer.value.address.trim() || null
     });
-    
+
     customers.value.push(res.data);
     resetNewCustomer();
     showAddForm.value = false;
@@ -186,17 +179,17 @@ const addCustomer = async () => {
 
 const editCustomer = (customer) => {
   console.log('Edit customer:', customer);
-  
+
 };
 
 const viewCustomer = (customer) => {
   console.log('View customer:', customer);
-  
+
 };
 
 const deleteCustomer = async (id) => {
   if (!confirm('Are you sure you want to delete this customer?')) return;
-  
+
   try {
     await axios.delete(`customers/${id}/`);
     customers.value = customers.value.filter(c => c.id !== id);
@@ -217,7 +210,7 @@ const toggleAllCustomers = (event) => {
 
 const deleteSelectedCustomers = async () => {
   if (!confirm(`Are you sure you want to delete ${selectedCustomers.value.length} customer(s)?`)) return;
-  
+
   try {
     await Promise.all(
       selectedCustomers.value.map(id => axios.delete(`customers/${id}/`))
@@ -247,6 +240,13 @@ onMounted(fetchCustomers);
 </script>
 
 <style scoped>
+.main-content {
+  margin-left: 260px;
+  flex: 1;
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
 .dashboard-container {
   max-width: 1400px;
   margin: 0 auto;
@@ -260,7 +260,7 @@ onMounted(fetchCustomers);
   background: white;
   padding: 30px;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
 }
 
@@ -307,7 +307,7 @@ onMounted(fetchCustomers);
   padding: 15px 20px;
   border-radius: 10px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .control-left {
@@ -372,7 +372,7 @@ onMounted(fetchCustomers);
   background: white;
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
 }
 
@@ -438,7 +438,8 @@ onMounted(fetchCustomers);
   color: #718096;
 }
 
-.orders-cell, .spent-cell {
+.orders-cell,
+.spent-cell {
   text-align: center;
   font-weight: 600;
 }
@@ -576,7 +577,7 @@ onMounted(fetchCustomers);
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -589,7 +590,7 @@ onMounted(fetchCustomers);
   border-radius: 12px;
   width: 90%;
   max-width: 500px;
-  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
 .modal-header {
@@ -719,35 +720,36 @@ onMounted(fetchCustomers);
   .stats-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .control-bar {
     flex-direction: column;
     gap: 15px;
   }
-  
-  .control-left, .control-right {
+
+  .control-left,
+  .control-right {
     width: 100%;
     justify-content: center;
   }
-  
+
   .table-wrapper {
     overflow-x: auto;
   }
-  
+
   .modal-content {
     margin: 20px;
     width: calc(100% - 40px);
   }
-  
+
   .form-actions {
     flex-direction: column;
   }
-  
+
   .actions-cell {
     flex-direction: column;
     gap: 5px;
   }
-  
+
   .action-btn {
     width: 100%;
     text-align: center;

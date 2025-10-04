@@ -1,107 +1,96 @@
 <template>
-  <div>
-    <ModernHeader />
+  <div class="layout">
+    <!-- Sidebar -->
+    <Sidebar />
+    <div class="main-content">
+      <ModernHeader />
 
-    <div class="dashboard-container">
-      <h2 class="page-title">Stock Management</h2>
+      <div class="dashboard-container">
+        <h2 class="page-title">Stock Management</h2>
 
-      <!-- Stock Button -->
-      <div class="actions-bar">
-        <button class="add-btn" @click="showAddPopup = true">➕ Add Stock</button>
+        <!-- Stock Table -->
+        <div class="table-wrapper">
+          <table class="modern-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Product</th>
+                <th>Color</th>
+                <th>Size</th>
+                <th>Supplier</th>
+                <th>Quantity</th>
+              </tr>
+              <!-- Filter Row -->
+              <tr class="filter-row">
+                <th><input type="text" v-model="filters.id" placeholder="Filter ID" /></th>
+
+                <th>
+                  <select v-model="filters.product">
+                    <option disabled value="">Select Product</option>
+                    <option v-for="product in products" :key="product.id" :value="product.name">
+                      {{ product.name }}
+                    </option>
+                  </select>
+                </th>
+
+                <th><input type="text" v-model="filters.color" placeholder="Filter color" /></th>
+                <th><input type="text" v-model="filters.size" placeholder="Filter size" /></th>
+                <th><input type="text" v-model="filters.supplier" placeholder="Filter supplier" /></th>
+                <th><input type="number" v-model.number="filters.quantity" placeholder="≥ Qty" /></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in filteredStock" :key="item.id">
+                <td>{{ item.id }}</td>
+                <td>{{ item.product?.name || '-' }}</td>
+                <td>{{ item.color?.name || '-' }}</td>
+                <td>{{ item.size?.display_name || '-' }}</td>
+                <td>{{ item.supplier?.name || '-' }}</td>
+                <td>{{ item.quantity }}</td>
+              </tr>
+              <tr v-if="filteredStock.length === 0">
+                <td colspan="6" class="empty-state">
+                  <span class="empty-icon">📦</span>
+                  <p>No stock items available</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <!-- Stock Table -->
-      <div class="table-wrapper">
-        <table class="modern-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Product</th>
-              <th>Color</th>
-              <th>Size</th>
-              <th>Quantity</th>
-            </tr>
-            <!-- Filter Row -->
-            <tr class="filter-row">
-              <th>
-                <input type="text" v-model="filters.id" placeholder="Filter ID" />
-              </th>
+      <!-- Stock Popup -->
+      <div v-if="showAddPopup" class="popup-overlay">
+        <div class="popup-box">
+          <h3>Add New Stock</h3>
 
-              <!-- Product Dropdown (force selection) -->
-              <th>
-                <select v-model="filters.product">
-                  <option disabled value="">Select Product</option>
-                  <option v-for="product in products" :key="product.id" :value="product.name">
-                    {{ product.name }}
-                  </option>
-                </select>
-              </th>
+          <label>
+            Product:
+            <multiselect v-model="newStock.product" :options="products" label="name" track-by="id"
+              placeholder="Select Product" />
+          </label>
 
-              <th>
-                <input type="text" v-model="filters.color" placeholder="Filter color" />
-              </th>
-              <th>
-                <input type="text" v-model="filters.size" placeholder="Filter size" />
-              </th>
-              <th>
-                <input type="number" v-model.number="filters.quantity" placeholder="≥ Qty" />
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in filteredStock" :key="item.id">
-              <td>{{ item.id }}</td>
-              <td>{{ item.variant?.product || '-' }}</td>
-              <td>{{ item.variant?.color?.name || '-' }}</td>
-              <td>{{ item.size?.display_name || '-' }}</td>
-              <td>{{ item.quantity }}</td>
-            </tr>
-            <tr v-if="filteredStock.length === 0">
-              <td colspan="5" class="empty-state">
-                <span class="empty-icon">📦</span>
-                <p>No stock items available</p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+          <label>
+            Color:
+            <multiselect v-model="newStock.color" :options="colors" label="name" track-by="id"
+              placeholder="Select Color" />
+          </label>
 
-    <!-- Stock Popup -->
-    <div v-if="showAddPopup" class="popup-overlay">
-      <div class="popup-box">
-        <h3>Add New Stock</h3>
+          <label>
+            Size:
+            <multiselect v-model="newStock.size" :options="sizes" label="display_name" track-by="id"
+              placeholder="Select Size" />
+          </label>
 
-        <label>
-          Variant:
-          <multiselect
-            v-model="newStock.variant"
-            :options="variants"
-            label="product"
-            track-by="id"
-            placeholder="Select Variant"
-          />
-        </label>
+          <label>
+            Quantity:
+            <input type="number" v-model.number="newStock.quantity" />
+          </label>
 
-        <label>
-          Size:
-          <multiselect
-            v-model="newStock.size"
-            :options="sizes"
-            label="display_name"
-            track-by="id"
-            placeholder="Select Size"
-          />
-        </label>
-
-        <label>
-          Quantity:
-          <input type="number" v-model.number="newStock.quantity" />
-        </label>
-
-        <div class="popup-actions">
-          <button class="update-btn" @click="addStock">Add</button>
-          <button class="cancel-btn" @click="showAddPopup = false">Cancel</button>
+          <div class="popup-actions">
+            <button class="update-btn" @click="addStock">Add</button>
+            <button class="cancel-btn" @click="showAddPopup = false">Cancel</button>
+          </div>
         </div>
       </div>
     </div>
@@ -114,132 +103,110 @@ import axios from '../plugins/axios.js';
 import ModernHeader from '../components/header.vue';
 import Multiselect from 'vue-multiselect';
 import 'vue-multiselect/dist/vue-multiselect.css';
+import Sidebar from '../components/Sidebar.vue';
 
 const stock = ref([]);
-const products = ref([]); // for product filter dropdown
+const products = ref([]);
+const sizes = ref([]);
+const colors = ref([]);
+
 const filters = ref({
   id: '',
   product: '',
   color: '',
   size: '',
+  supplier: '',
   quantity: null
 });
 
 const showAddPopup = ref(false);
 const newStock = ref({
-  variant: null,
+  product: null,
+  color: null,
   size: null,
-  quantity: null
+  quantity: null,
+  supplier: null
 });
 
-// Data for dropdowns
-const variants = ref([]);
-const sizes = ref([]);
-
+//Fetch stock items
 const fetchStock = async () => {
   try {
-    const res = await axios.get('/stock');
-    if (Array.isArray(res.data)) {
-      stock.value = res.data;
-    } else if (res.data.results) {
-      stock.value = res.data.results;
-    } else {
-      stock.value = [];
-    }
+    const res = await axios.get('/stock-items/');
+    stock.value = res.data;
   } catch (error) {
     console.error('Error fetching stock:', error);
   }
 };
 
+// Fetch dropdown data
 const fetchProducts = async () => {
-  try {
-    const res = await axios.get('/products');
-    products.value = res.data;
-  } catch (error) {
-    console.error('Error fetching products:', error);
-  }
-};
-
-const fetchVariants = async () => {
-  try {
-    const res = await axios.get('/variants');
-    variants.value = res.data;
-  } catch (error) {
-    console.error('Error fetching variants:', error);
-  }
+  const res = await axios.get('/products/');
+  products.value = res.data;
 };
 
 const fetchSizes = async () => {
-  try {
-    const res = await axios.get('/sizes');
-    sizes.value = res.data;
-  } catch (error) {
-    console.error('Error fetching sizes:', error);
-  }
+  const res = await axios.get('/sizes/');
+  sizes.value = res.data;
 };
 
+const fetchColors = async () => {
+  const res = await axios.get('/colors/');
+  colors.value = res.data;
+};
+
+//  Add stock
 const addStock = async () => {
   try {
-    const { variant, size, quantity } = newStock.value;
-    if (!variant || !size || !quantity) {
+    const { product, color, size, quantity } = newStock.value;
+    if (!product || !color || !size || !quantity) {
       alert('Please fill all fields');
       return;
     }
-    await axios.post(
-      `/addstock/?variant_id=${variant.id}&size_id=${size.id}&quantity=${quantity}`
-    );
+    await axios.post('/stock-items/', {
+      product: product.id,
+      color: color.id,
+      size: size.id,
+      quantity: quantity,
+    });
     alert('New stock added successfully!');
     showAddPopup.value = false;
-    newStock.value = { variant: null, size: null, quantity: null };
-    fetchStock(); // refresh table
+    newStock.value = { product: null, color: null, size: null, quantity: null };
+    fetchStock();
   } catch (error) {
     console.error('Error adding stock:', error);
   }
 };
 
+// Filtering
 const filteredStock = computed(() => {
   return stock.value.filter(item => {
-    const matchesId =
-      !filters.value.id || item.id.toString().includes(filters.value.id);
+    const matchesId = !filters.value.id || item.id.toString().includes(filters.value.id);
+    const matchesProduct = !filters.value.product || item.product?.name === filters.value.product;
+    const matchesColor = !filters.value.color || item.color?.name?.toLowerCase().includes(filters.value.color.toLowerCase());
+    const matchesSize = !filters.value.size || item.size?.display_name?.toLowerCase().includes(filters.value.size.toLowerCase());
+    const matchesSupplier = !filters.value.supplier || item.supplier?.name?.toLowerCase().includes(filters.value.supplier.toLowerCase());
+    const matchesQuantity = !filters.value.quantity || item.quantity >= filters.value.quantity;
 
-    // require product selection
-    const matchesProduct =
-      !filters.value.product || item.variant?.product === filters.value.product;
-
-    const matchesColor =
-      !filters.value.color ||
-      item.variant?.color?.name
-        ?.toLowerCase()
-        .includes(filters.value.color.toLowerCase());
-
-    const matchesSize =
-      !filters.value.size ||
-      item.size?.display_name
-        ?.toLowerCase()
-        .includes(filters.value.size.toLowerCase());
-
-    const matchesQuantity =
-      !filters.value.quantity || item.quantity >= filters.value.quantity;
-
-    return (
-      matchesId &&
-      matchesProduct &&
-      matchesColor &&
-      matchesSize &&
-      matchesQuantity
-    );
+    return matchesId && matchesProduct && matchesColor && matchesSize && matchesSupplier && matchesQuantity;
   });
 });
 
 onMounted(() => {
   fetchStock();
   fetchProducts();
-  fetchVariants();
   fetchSizes();
+  fetchColors();
 });
 </script>
 
 <style scoped>
+.main-content {
+  margin-left: 260px;
+  flex: 1;
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
 /* Container */
 .dashboard-container {
   max-width: 1200px;
@@ -264,6 +231,7 @@ onMounted(() => {
   margin-bottom: 10px;
   text-align: right;
 }
+
 .add-btn {
   padding: 6px 12px;
   background-color: #2563eb;
@@ -272,6 +240,7 @@ onMounted(() => {
   border-radius: 6px;
   cursor: pointer;
 }
+
 .add-btn:hover {
   background-color: #1e40af;
 }
@@ -283,11 +252,13 @@ onMounted(() => {
   overflow: hidden;
   background: white;
 }
+
 .modern-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.875rem;
 }
+
 .modern-table th,
 .modern-table td {
   padding: 8px 10px;
@@ -295,6 +266,7 @@ onMounted(() => {
   border-bottom: 1px solid #e5e7eb;
   vertical-align: middle;
 }
+
 .modern-table th {
   background: #f3f4f6;
   font-weight: 600;
@@ -303,6 +275,7 @@ onMounted(() => {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
 tbody tr:hover {
   background: #f9fafb;
   transition: background 0.15s;
@@ -325,6 +298,7 @@ tbody tr:hover {
   color: #6b7280;
   font-style: italic;
 }
+
 .empty-icon {
   font-size: 2rem;
   display: block;
@@ -343,6 +317,7 @@ tbody tr:hover {
   justify-content: center;
   align-items: center;
 }
+
 .popup-box {
   background: #fff;
   padding: 20px;
@@ -350,16 +325,19 @@ tbody tr:hover {
   width: 320px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
+
 .popup-box h3 {
   margin-bottom: 15px;
   font-size: 1.2rem;
   font-weight: 600;
 }
+
 .popup-box label {
   display: block;
   margin-bottom: 10px;
   font-size: 0.85rem;
 }
+
 .popup-box input {
   width: 100%;
   padding: 6px;
@@ -367,6 +345,7 @@ tbody tr:hover {
   border-radius: 4px;
   margin-top: 4px;
 }
+
 .popup-actions {
   margin-top: 15px;
   display: flex;

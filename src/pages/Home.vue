@@ -1,47 +1,51 @@
 <template>
-    <div>
- <ModernHeader />
-   
-  <div class="home-container">
-    <!-- Welcome Section -->
-    <section class="welcome-section">
-      <h1 class="welcome-title">👋 Welcome back, {{ username }}!</h1>
-      <p class="welcome-subtitle">Manage your clothing inventory with ease.</p>
-    </section>
+  <div class="layout">
+    <!-- Sidebar -->
+    <Sidebar />
 
-  
+    <!-- Main Content -->
+    <div class="main-content">
+      <ModernHeader />
+      <div class="home-container">
+        <!-- Welcome Section -->
+        <section class="welcome-section">
+          <h1 class="welcome-title">👋 Welcome back, {{ username }}!</h1>
+          <p class="welcome-subtitle">Manage your clothing inventory with ease.</p>
+        </section>
 
-    <!-- Recent Activity -->
-    <section class="activity-section">
-      <h2>📦 Recent Stock Movements</h2>
-      <ul>
-        <li v-for="move in recentStock" :key="move.id" class="activity-item">
-          <span>{{ move.timestamp }}:</span>
-          <strong>{{ move.change > 0 ? "Added" : "Removed" }}</strong>
-          {{ Math.abs(move.change) }} units of
-          <em>{{ move.variant }}</em> ({{ move.size }})
-        </li>
-      </ul>
-    </section>
+        <!-- Recent Activity -->
+        <section class="activity-section">
+          <h2>📦 Recent Stock Movements</h2>
+          <ul>
+            <li v-for="move in recentStock" :key="move.id" class="activity-item">
+              <span>{{ move.timestamp }}:</span>
+              <strong>{{ move.change > 0 ? "Added" : "Removed" }}</strong>
+              {{ Math.abs(move.change) }} units of
+              <em>{{ move.variant }}</em> ({{ move.size }})
+            </li>
+          </ul>
+        </section>
 
-    <section class="activity-section">
-      <h2>🧾 Recent Invoices</h2>
-      <ul>
-        <li v-for="invoice in recentInvoices" :key="invoice.id" class="activity-item">
-          <span>{{ invoice.date }}</span> → 
-          <strong>{{ invoice.customer?.name }}</strong> 
-          ({{ invoice.total_items }} items)
-        </li>
-      </ul>
-    </section>
-  </div>
+        <section class="activity-section">
+          <h2>🧾 Recent Invoices</h2>
+          <ul>
+            <li v-for="invoice in recentInvoices" :key="invoice.id" class="activity-item">
+              <span>{{ invoice.date }}</span> →
+              <strong>{{ invoice.customer?.name }}</strong>
+              ({{ invoice.total_items }} items)
+            </li>
+          </ul>
+        </section>
+      </div>
     </div>
+  </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from "vue";
 import axios from "../plugins/axios.js";
 import ModernHeader from '../components/header.vue';
+import Sidebar from '../components/Sidebar.vue';
 
 const username = localStorage.getItem("username") || "User";
 
@@ -79,10 +83,21 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.layout {
+  display: flex;
+}
+
+/* Push content aside */
+.main-content {
+  margin-left: 260px;
+  flex: 1;
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
 .home-container {
   padding: 30px;
   font-family: "Segoe UI", sans-serif;
-  background: #f8fafc;
 }
 
 /* Welcome Section */
@@ -103,52 +118,13 @@ onMounted(async () => {
   margin-top: 5px;
 }
 
-/* Stats Grid */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
-  margin-bottom: 40px;
-}
-
-.stat-card {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  text-align: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  transition: transform 0.2s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-4px);
-}
-
-.stat-card h3 {
-  color: #374151;
-  font-size: 1rem;
-  margin-bottom: 8px;
-}
-
-.stat-value {
-  font-size: 1.8rem;
-  font-weight: bold;
-  color: #111827;
-}
-
-/* Color Accents */
-.products { border-top: 5px solid #2563eb; }
-.customers { border-top: 5px solid #f59e0b; }
-.stock { border-top: 5px solid #10b981; }
-.invoices { border-top: 5px solid #dc2626; }
-
 /* Recent Activity */
 .activity-section {
   margin-top: 30px;
   background: white;
   padding: 20px;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .activity-section h2 {

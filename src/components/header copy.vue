@@ -26,7 +26,7 @@ import { useRouter } from "vue-router";
 const router = useRouter();
 
 const companyName = localStorage.getItem("company") || "AS DISTRIBUTORS";
-const username = localStorage.getItem("username") || "User";
+const username = localStorage.getItem("role") || "Super Admin";
 const userInitials = username.split(" ").map(word => word[0]).join("").slice(0, 2).toUpperCase();
 
 const showDropdown = ref(false);

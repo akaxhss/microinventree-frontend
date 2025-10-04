@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://103.14.120.137:8080/api/', // Django API root
+  baseURL: 'http://127.0.0.1:8000/api/', // Django API root
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -27,7 +27,7 @@ api.interceptors.response.use(
       if (refreshToken) {
         try {
           // request a new access token
-          const res = await axios.post('http://103.14.120.137:8080/api/token/refresh/', {
+          const res = await axios.post('http://127.0.0.1:8000/api/token/refresh/', {
             refresh: refreshToken,
           })
 
