@@ -16,7 +16,7 @@
         </div>
 
         <!-- Child -->
-        <InvoiceByCustomer v-if="activeTab === 'Packing Slips by Customer'" />
+        <ReportsOfPackingSlips v-if="activeTab === 'Packing Slips by Customer'" />
         <ReportsOfProducts v-if="activeTab === 'Reports of Products'" />
       </div>
     </div>
@@ -26,7 +26,7 @@
 <script setup>
 import { ref } from "vue";
 import ModernHeader from "../components/header.vue";
-import InvoiceByCustomer from "./child/InvoiceByCustomer.vue";
+import ReportsOfPackingSlips from "./child/ReportsOfPackingSlips.vue";
 import ReportsOfProducts from "./child/ReportsOfProducts.vue";
 import Sidebar from '../components/Sidebar.vue';
 

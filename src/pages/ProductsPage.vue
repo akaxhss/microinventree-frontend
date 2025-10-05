@@ -7,352 +7,536 @@
     <div class="main-content">
       <ModernHeader />
 
-      <!-- Dashboard Container -->
-      <div class="dashboard-container">
+      <div class="form-container">
+        <h2 class="page-title">Manage Products</h2>
 
-        <h2 class="page-title">Products</h2>
-
-        <!-- Products Table -->
-        <div class="table-wrapper">
-          <table class="modern-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>SKU</th>
-                <th>Name</th>
-                <th>Variants</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="product in products" :key="product.id" class="table-row">
-                <td>{{ product.id }}</td>
-                <td>{{ product.sku }}</td>
-                <td>{{ product.name }}</td>
-                <td>
-                  <ul>
-                    <li v-for="variant in product.variants" :key="variant.id">
-                      {{ variant.color.name || 'N/A' }}
-                    </li>
-                  </ul>
-                </td>
-                <td class="actions-cell">
-                  <button class="action-btn delete" @click="deleteProduct(product.id)">Delete</button>
-                </td>
-              </tr>
-              <tr v-if="products.length === 0">
-                <td colspan="5" class="empty-state">
-                  <div class="empty-content">
-                    <span class="empty-icon">📦</span>
-                    <p>No products available</p>
-                    <button class="add-first-btn" @click="showAddForm = true">Add First Product</button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Add Product Modal -->
-        <div v-if="showAddForm" class="modal-overlay" @click="showAddForm = false">
-          <div class="modal-content" @click.stop>
-            <div class="modal-header">
-              <h3>Add New Product</h3>
-              <button class="close-btn" @click="showAddForm = false">×</button>
+        <!-- Add/Edit Product Form -->
+        <div class="product-form-section">
+          <h3 class="section-title">{{ isEditing ? 'Edit Product' : 'Add New Product' }}</h3>
+          <div class="product-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="productSKU">SKU *</label>
+                <input type="text" id="productSKU" v-model="productForm.sku" placeholder="e.g. TB1503"
+                  class="form-input" :class="{ 'error': skuError }" />
+                <div v-if="skuError" class="error-message">{{ skuError }}</div>
+              </div>
+              <div class="form-group">
+                <label for="productName">Product Name *</label>
+                <input type="text" id="productName" v-model="productForm.name" placeholder="Enter product name"
+                  class="form-input" />
+              </div>
             </div>
-            <form @submit.prevent="addProduct" class="modal-form">
+
+            <div class="form-row">
               <div class="form-group">
-                <label>Product Name</label>
-                <input v-model="newProductName" placeholder="Enter product name" class="form-input" required />
+                <label for="productMSRP">MSRP</label>
+                <input type="number" id="productMSRP" v-model="productForm.msrp" placeholder="0.00" step="0.01" min="0"
+                  class="form-input" />
               </div>
-              <div class="form-group">
-                <label>SKU</label>
-                <input v-model="newProductSKU" placeholder="Enter SKU" class="form-input" required />
+              <div class="form-group full-width">
+                <label for="productDescription">Description</label>
+                <textarea id="productDescription" v-model="productForm.description" placeholder="Product description"
+                  class="form-textarea" rows="4"></textarea>
               </div>
-              <div class="form-actions">
-                <button type="button" class="btn-secondary" @click="showAddForm = false">Cancel</button>
-                <button type="submit" class="btn-primary">Add Product</button>
-              </div>
-            </form>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn save-btn" @click="saveProduct" :disabled="!canSave">
+                {{ isEditing ? '💾 Update Product' : '➕ Add Product' }}
+              </button>
+              <button v-if="isEditing" class="btn cancel-btn" @click="cancelEdit">
+                ❌ Cancel
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- Floating Add Button -->
-        <button class="floating-add-btn" @click="showAddForm = true">+</button>
+        <!-- Products List -->
+        <div class="products-list-section">
+          <h3 class="section-title">Existing Products</h3>
+          <div v-if="products.length === 0" class="empty-state">
+            No products added yet. Add your first product above.
+          </div>
+          <div v-else class="products-table">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Product Name</th>
+                  <th>MSRP</th>
+                  <th>Description</th>
+                  <th class="actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="product in products" :key="product.id">
+                  <td class="sku-cell">
+                    <strong>{{ product.sku }}</strong>
+                  </td>
+                  <td class="name-cell">
+                    {{ product.name }}
+                  </td>
+                  <td class="msrp-cell">
+                    <span v-if="product.msrp" class="price">{{ formatPrice(product.msrp) }}</span>
+                    <span v-else class="no-price">-</span>
+                  </td>
+                  <td class="description-cell">
+                    <div class="description-text" :title="product.description">
+                      {{ product.description || '-' }}
+                    </div>
+                  </td>
+                  <td class="actions-cell">
+                    <button class="btn edit-btn" @click="editProduct(product)">
+                      ✏️
+                    </button>
+                    <button class="btn danger-btn" @click="deleteProduct(product.id)">
+                      🗑️
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import axios from '../plugins/axios.js';
-import ModernHeader from '../components/header.vue';
-import Sidebar from '../components/Sidebar.vue';
+import { ref, onMounted, reactive, computed } from "vue";
+import axios from "../plugins/axios.js";
+import Sidebar from "../components/Sidebar.vue";
+import ModernHeader from "../components/header.vue";
 
-
+// Product data
 const products = ref([]);
-const newProductName = ref('');
-const newProductSKU = ref('');
-const showAddForm = ref(false);
+const isEditing = ref(false);
+const editingId = ref(null);
+const skuError = ref("");
 
-const fetchProducts = async () => {
+// Product form
+const productForm = reactive({
+  sku: "",
+  name: "",
+  msrp: "",
+  description: ""
+});
+
+// Computed properties
+const canSave = computed(() => {
+  return productForm.sku.trim() && productForm.name.trim();
+});
+
+// Load products on mount
+onMounted(async () => {
+  await loadProducts();
+});
+
+// Load products from API
+const loadProducts = async () => {
   try {
-    const res = await axios.get('products/');
+    const res = await axios.get("/products/");
     products.value = res.data;
   } catch (error) {
-    console.error('Error fetching products:', error);
+    console.error("Error loading products:", error);
+    alert("Error loading products!");
   }
 };
 
-const addProduct = async () => {
-  if (!newProductName.value.trim() || !newProductSKU.value.trim()) return;
+// Save product (add or update)
+const saveProduct = async () => {
+  if (!canSave.value) {
+    alert("Please enter SKU and product name!");
+    return;
+  }
+
   try {
-    const res = await axios.post('products/', {
-      name: newProductName.value,
-      sku: newProductSKU.value
-    });
-    products.value.push(res.data);
-    newProductName.value = '';
-    newProductSKU.value = '';
-    showAddForm.value = false;
+    const productData = {
+      sku: productForm.sku.trim(),
+      name: productForm.name.trim(),
+      description: productForm.description.trim() || "",
+      msrp: productForm.msrp ? parseFloat(productForm.msrp) : null
+    };
+
+    if (isEditing.value) {
+      // Update existing product
+      await axios.put(`/products/${editingId.value}/`, productData);
+      alert("Product updated successfully!");
+    } else {
+      // Add new product
+      await axios.post("/products/", productData);
+      alert("Product added successfully!");
+    }
+
+    // Reset form and reload products
+    resetForm();
+    await loadProducts();
+
   } catch (error) {
-    console.error('Error adding product:', error);
+    console.error("Error saving product:", error);
+    if (error.response?.data?.sku) {
+      skuError.value = error.response.data.sku[0];
+    } else {
+      alert("Error saving product!");
+    }
   }
 };
 
-const deleteProduct = async (id) => {
-  if (!confirm('Are you sure you want to delete this product?')) return;
+// Edit product
+const editProduct = (product) => {
+  isEditing.value = true;
+  editingId.value = product.id;
+  skuError.value = "";
+
+  // Fill form with product data
+  productForm.sku = product.sku;
+  productForm.name = product.name;
+  productForm.msrp = product.msrp || "";
+  productForm.description = product.description || "";
+};
+
+// Cancel edit
+const cancelEdit = () => {
+  resetForm();
+};
+
+// Delete product
+const deleteProduct = async (productId) => {
+  if (!confirm("Are you sure you want to delete this product?")) {
+    return;
+  }
+
   try {
-    await axios.delete(`products/${id}/`);
-    products.value = products.value.filter(p => p.id !== id);
+    await axios.delete(`/products/${productId}/`);
+    await loadProducts();
+    alert("Product deleted successfully!");
   } catch (error) {
-    console.error('Error deleting product:', error);
+    console.error("Error deleting product:", error);
+    alert("Error deleting product!");
   }
 };
 
-onMounted(fetchProducts);
+// Reset form
+const resetForm = () => {
+  isEditing.value = false;
+  editingId.value = null;
+  skuError.value = "";
+  productForm.sku = "";
+  productForm.name = "";
+  productForm.msrp = "";
+  productForm.description = "";
+};
+
+// Format price
+const formatPrice = (price) => {
+  return parseFloat(price).toFixed(2);
+};
 </script>
 
 <style scoped>
+.layout {
+  display: flex;
+}
+
 .main-content {
-  margin-left: 260px;
+  margin-left: 235px;
   flex: 1;
-  background: #f8fafc;
   min-height: 100vh;
+  background: #f9fafb;
+  padding: 20px;
 }
 
-/* Dashboard Container */
-.dashboard-container {
+.form-container {
+  background: #fff;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   max-width: 1200px;
-  margin: 40px auto;
-  padding: 20px;
-  background-color: #f8fafc;
-  min-height: 100vh;
 }
 
-/* Page Title */
 .page-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #1a202c;
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-/* Table Styles */
-.table-wrapper {
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.modern-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.modern-table th {
-  background: #f7fafc;
-  padding: 15px;
-  font-weight: 600;
-  color: #4a5568;
-  border-bottom: 2px solid #e2e8f0;
-}
-
-.modern-table td {
-  padding: 12px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.table-row:hover {
-  background: #f1f5f9;
-  transition: background 0.2s;
-}
-
-/* Actions */
-.actions-cell {
-  display: flex;
-  gap: 8px;
-}
-
-.action-btn {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.action-btn.delete {
-  background: #fed7d7;
-  color: #c53030;
-}
-
-.action-btn.delete:hover {
-  background: #f87171;
-}
-
-/* Empty State */
-.empty-state {
-  padding: 60px 20px;
-  text-align: center;
-}
-
-.empty-content {
-  color: #a0aec0;
-}
-
-.empty-icon {
-  font-size: 3rem;
-  display: block;
-  margin-bottom: 10px;
-}
-
-.add-first-btn {
-  margin-top: 10px;
-  padding: 10px 20px;
-  background: #4f46e5;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  padding: 0;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  box-shadow: 0 20px 25px rgba(0, 0, 0, 0.1);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #1a202c;
-}
-
-.close-btn {
-  background: none;
-  border: none;
   font-size: 1.5rem;
-  cursor: pointer;
-  color: #718096;
+  font-weight: 700;
+  margin-bottom: 30px;
+  color: #333;
+  text-align: center;
 }
 
-.modal-form {
-  padding: 30px;
+.section-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #555;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 8px;
+}
+
+/* Product Form */
+.product-form-section {
+  margin-bottom: 40px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.product-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 .form-group {
-  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 200px;
+}
+
+.form-group.full-width {
+  flex: 2;
+  min-width: 300px;
 }
 
 .form-group label {
-  display: block;
   margin-bottom: 5px;
   font-weight: 600;
-  color: #4a5568;
+  color: #555;
+  font-size: 0.9rem;
 }
 
-.form-input {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #e2e8f0;
+.form-input,
+.form-textarea {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
   border-radius: 6px;
+  font-size: 0.9rem;
+  background: #fff;
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+}
+
+.form-input.error {
+  border-color: #f44336;
+}
+
+.error-message {
+  color: #f44336;
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 100px;
 }
 
 .form-actions {
   display: flex;
-  gap: 10px;
-  justify-content: flex-end;
+  gap: 12px;
+  align-items: center;
 }
 
-.btn-secondary {
-  padding: 10px 20px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.btn-primary {
-  padding: 10px 20px;
-  background: #4f46e5;
-  color: white;
+/* Buttons */
+.btn {
   border: none;
   border-radius: 6px;
   cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  padding: 10px 16px;
 }
 
-/* Floating Add Button */
-.floating-add-btn {
-  position: fixed;
-  bottom: 30px;
-  right: 30px;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: #4f46e5;
+.save-btn {
+  background: #4CAF50;
   color: white;
-  border: none;
-  font-size: 2rem;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-  transition: transform 0.2s;
 }
 
-.floating-add-btn:hover {
-  transform: scale(1.1);
+.save-btn:hover:not(:disabled) {
+  background: #45a049;
+  transform: translateY(-1px);
 }
 
+.save-btn:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.cancel-btn {
+  background: #757575;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: #616161;
+}
+
+.edit-btn {
+  background: #2196F3;
+  color: white;
+  padding: 6px 10px;
+  margin-right: 5px;
+}
+
+.edit-btn:hover {
+  background: #1976D2;
+}
+
+.danger-btn {
+  background: #f44336;
+  color: white;
+  padding: 6px 10px;
+}
+
+.danger-btn:hover {
+  background: #d32f2f;
+}
+
+/* Products List */
+.products-list-section {
+  padding: 0 10px;
+}
+
+.empty-state {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 40px 20px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px dashed #ddd;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.data-table th {
+  background: #f5f5f5;
+  font-weight: 600;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.data-table td {
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.actions-col {
+  width: 120px;
+  text-align: center;
+}
+
+.actions-cell {
+  text-align: center;
+}
+
+.sku-cell {
+  font-weight: 600;
+  font-family: monospace;
+  background: #f8f9fa;
+}
+
+.name-cell {
+  font-weight: 600;
+  color: #333;
+}
+
+.msrp-cell {
+  text-align: right;
+}
+
+.price {
+  font-weight: 600;
+  color: #2e7d32;
+  font-family: monospace;
+}
+
+.no-price {
+  color: #999;
+  font-style: italic;
+}
+
+.description-cell {
+  max-width: 300px;
+}
+
+.description-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #666;
+}
+
+.description-text:hover {
+  white-space: normal;
+  overflow: visible;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
-  .table-wrapper {
+  .form-row {
+    flex-direction: column;
+  }
+
+  .form-group {
+    min-width: auto;
+  }
+
+  .data-table {
+    display: block;
     overflow-x: auto;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 15px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn {
+    text-align: center;
+  }
+
+  .description-text {
+    white-space: normal;
+    overflow: visible;
+    max-height: 60px;
+    overflow-y: auto;
   }
 }
 </style>

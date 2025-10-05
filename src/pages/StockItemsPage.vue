@@ -6,90 +6,89 @@
       <ModernHeader />
 
       <div class="dashboard-container">
-        <h2 class="page-title">Stock Management</h2>
+        <div class="header-section">
+          <h2 class="page-title">Stock Inventory</h2>
+        </div>
 
         <!-- Stock Table -->
-        <div class="table-wrapper">
-          <table class="modern-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Product</th>
-                <th>Color</th>
-                <th>Size</th>
-                <th>Supplier</th>
-                <th>Quantity</th>
-              </tr>
-              <!-- Filter Row -->
-              <tr class="filter-row">
-                <th><input type="text" v-model="filters.id" placeholder="Filter ID" /></th>
-
-                <th>
-                  <select v-model="filters.product">
-                    <option disabled value="">Select Product</option>
-                    <option v-for="product in products" :key="product.id" :value="product.name">
-                      {{ product.name }}
-                    </option>
-                  </select>
-                </th>
-
-                <th><input type="text" v-model="filters.color" placeholder="Filter color" /></th>
-                <th><input type="text" v-model="filters.size" placeholder="Filter size" /></th>
-                <th><input type="text" v-model="filters.supplier" placeholder="Filter supplier" /></th>
-                <th><input type="number" v-model.number="filters.quantity" placeholder="≥ Qty" /></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in filteredStock" :key="item.id">
-                <td>{{ item.id }}</td>
-                <td>{{ item.product?.name || '-' }}</td>
-                <td>{{ item.color?.name || '-' }}</td>
-                <td>{{ item.size?.display_name || '-' }}</td>
-                <td>{{ item.supplier?.name || '-' }}</td>
-                <td>{{ item.quantity }}</td>
-              </tr>
-              <tr v-if="filteredStock.length === 0">
-                <td colspan="6" class="empty-state">
-                  <span class="empty-icon">📦</span>
-                  <p>No stock items available</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Stock Popup -->
-      <div v-if="showAddPopup" class="popup-overlay">
-        <div class="popup-box">
-          <h3>Add New Stock</h3>
-
-          <label>
-            Product:
-            <multiselect v-model="newStock.product" :options="products" label="name" track-by="id"
-              placeholder="Select Product" />
-          </label>
-
-          <label>
-            Color:
-            <multiselect v-model="newStock.color" :options="colors" label="name" track-by="id"
-              placeholder="Select Color" />
-          </label>
-
-          <label>
-            Size:
-            <multiselect v-model="newStock.size" :options="sizes" label="display_name" track-by="id"
-              placeholder="Select Size" />
-          </label>
-
-          <label>
-            Quantity:
-            <input type="number" v-model.number="newStock.quantity" />
-          </label>
-
-          <div class="popup-actions">
-            <button class="update-btn" @click="addStock">Add</button>
-            <button class="cancel-btn" @click="showAddPopup = false">Cancel</button>
+        <div class="table-container">
+          <div class="table-wrapper">
+            <table class="modern-table">
+              <thead>
+                <tr>
+                  <th class="id-col">ID</th>
+                  <th class="product-col">Product</th>
+                  <th class="color-col">Color</th>
+                  <th class="size-col">Size</th>
+                  <th class="supplier-col">Supplier</th>
+                  <th class="quantity-col">Quantity</th>
+                </tr>
+                <!-- Filter Row -->
+                <tr class="filter-row">
+                  <th>
+                    <input type="text" v-model="filters.id" placeholder="Filter ID" class="filter-input" />
+                  </th>
+                  <th>
+                    <select v-model="filters.product" class="filter-select">
+                      <option value="">All Products</option>
+                      <option v-for="product in products" :key="product.id" :value="product.name">
+                        {{ product.name }}
+                      </option>
+                    </select>
+                  </th>
+                  <th>
+                    <input type="text" v-model="filters.color" placeholder="Filter color" class="filter-input" />
+                  </th>
+                  <th>
+                    <input type="text" v-model="filters.size" placeholder="Filter size" class="filter-input" />
+                  </th>
+                  <th>
+                    <input type="text" v-model="filters.supplier" placeholder="Filter supplier" class="filter-input" />
+                  </th>
+                  <th>
+                    <input type="number" v-model.number="filters.quantity" placeholder="≥ Qty" class="filter-input" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in filteredStock" :key="item.id">
+                  <td class="id-cell">
+                    <span class="id-badge">#{{ item.id }}</span>
+                  </td>
+                  <td class="product-cell">
+                    <div class="product-info">
+                      <strong class="product-name">{{ item.product?.name || '-' }}</strong>
+                      <span class="product-sku" v-if="item.product?.sku">{{ item.product.sku }}</span>
+                    </div>
+                  </td>
+                  <td class="color-cell">
+                    <div class="color-info">
+                      <div class="color-swatch" :style="{ backgroundColor: item.color?.hex_code || '#94a3b8' }"></div>
+                      <span class="color-name">{{ item.color?.name || '-' }}</span>
+                    </div>
+                  </td>
+                  <td class="size-cell">
+                    <span class="size-badge">{{ item.size?.display_name || item.size?.code || '-' }}</span>
+                  </td>
+                  <td class="supplier-cell">
+                    <span class="supplier-name" v-if="item.supplier">{{ item.supplier.name }}</span>
+                    <span class="no-supplier" v-else>-</span>
+                  </td>
+                  <td class="quantity-cell">
+                    <span class="quantity-text">{{ item.quantity }}</span>
+                  </td>
+                </tr>
+                <tr v-if="filteredStock.length === 0">
+                  <td colspan="6" class="empty-state">
+                    <div class="empty-content">
+                      <span class="empty-icon">📦</span>
+                      <p>No stock items found</p>
+                      <p class="empty-subtitle">Try adjusting your filters</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -101,8 +100,6 @@
 import { ref, computed, onMounted } from 'vue';
 import axios from '../plugins/axios.js';
 import ModernHeader from '../components/header.vue';
-import Multiselect from 'vue-multiselect';
-import 'vue-multiselect/dist/vue-multiselect.css';
 import Sidebar from '../components/Sidebar.vue';
 
 const stock = ref([]);
@@ -119,16 +116,21 @@ const filters = ref({
   quantity: null
 });
 
-const showAddPopup = ref(false);
-const newStock = ref({
-  product: null,
-  color: null,
-  size: null,
-  quantity: null,
-  supplier: null
+// Computed properties
+const filteredStock = computed(() => {
+  return stock.value.filter(item => {
+    const matchesId = !filters.value.id || item.id.toString().includes(filters.value.id);
+    const matchesProduct = !filters.value.product || item.product?.name === filters.value.product;
+    const matchesColor = !filters.value.color || item.color?.name?.toLowerCase().includes(filters.value.color.toLowerCase());
+    const matchesSize = !filters.value.size || item.size?.display_name?.toLowerCase().includes(filters.value.size.toLowerCase());
+    const matchesSupplier = !filters.value.supplier || item.supplier?.name?.toLowerCase().includes(filters.value.supplier.toLowerCase());
+    const matchesQuantity = !filters.value.quantity || item.quantity >= filters.value.quantity;
+
+    return matchesId && matchesProduct && matchesColor && matchesSize && matchesSupplier && matchesQuantity;
+  });
 });
 
-//Fetch stock items
+// Methods
 const fetchStock = async () => {
   try {
     const res = await axios.get('/stock-items/');
@@ -138,7 +140,6 @@ const fetchStock = async () => {
   }
 };
 
-// Fetch dropdown data
 const fetchProducts = async () => {
   const res = await axios.get('/products/');
   products.value = res.data;
@@ -154,43 +155,6 @@ const fetchColors = async () => {
   colors.value = res.data;
 };
 
-//  Add stock
-const addStock = async () => {
-  try {
-    const { product, color, size, quantity } = newStock.value;
-    if (!product || !color || !size || !quantity) {
-      alert('Please fill all fields');
-      return;
-    }
-    await axios.post('/stock-items/', {
-      product: product.id,
-      color: color.id,
-      size: size.id,
-      quantity: quantity,
-    });
-    alert('New stock added successfully!');
-    showAddPopup.value = false;
-    newStock.value = { product: null, color: null, size: null, quantity: null };
-    fetchStock();
-  } catch (error) {
-    console.error('Error adding stock:', error);
-  }
-};
-
-// Filtering
-const filteredStock = computed(() => {
-  return stock.value.filter(item => {
-    const matchesId = !filters.value.id || item.id.toString().includes(filters.value.id);
-    const matchesProduct = !filters.value.product || item.product?.name === filters.value.product;
-    const matchesColor = !filters.value.color || item.color?.name?.toLowerCase().includes(filters.value.color.toLowerCase());
-    const matchesSize = !filters.value.size || item.size?.display_name?.toLowerCase().includes(filters.value.size.toLowerCase());
-    const matchesSupplier = !filters.value.supplier || item.supplier?.name?.toLowerCase().includes(filters.value.supplier.toLowerCase());
-    const matchesQuantity = !filters.value.quantity || item.quantity >= filters.value.quantity;
-
-    return matchesId && matchesProduct && matchesColor && matchesSize && matchesSupplier && matchesQuantity;
-  });
-});
-
 onMounted(() => {
   fetchStock();
   fetchProducts();
@@ -200,6 +164,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.layout {
+  display: flex;
+}
+
 .main-content {
   margin-left: 260px;
   flex: 1;
@@ -209,48 +177,36 @@ onMounted(() => {
 
 /* Container */
 .dashboard-container {
-  max-width: 1200px;
-  margin: 20px auto;
-  padding: 10px;
-  background-color: #f9fafb;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
   min-height: 100vh;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  color: #1f2937;
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* Page Title */
+/* Header Section */
+.header-section {
+  margin-bottom: 24px;
+}
+
 .page-title {
-  font-size: 1.4rem;
+  font-size: 1.8rem;
   font-weight: 600;
-  margin-bottom: 15px;
-  color: #2563eb;
-}
-
-/* Actions Bar */
-.actions-bar {
-  margin-bottom: 10px;
-  text-align: right;
-}
-
-.add-btn {
-  padding: 6px 12px;
-  background-color: #2563eb;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.add-btn:hover {
-  background-color: #1e40af;
+  color: #1f2937;
+  margin: 0;
 }
 
 /* Table Container */
-.table-wrapper {
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  overflow: hidden;
+.table-container {
   background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+/* Table Styles */
+.table-wrapper {
+  overflow-x: auto;
 }
 
 .modern-table {
@@ -259,97 +215,186 @@ onMounted(() => {
   font-size: 0.875rem;
 }
 
-.modern-table th,
-.modern-table td {
-  padding: 8px 10px;
-  text-align: center;
-  border-bottom: 1px solid #e5e7eb;
-  vertical-align: middle;
-}
-
 .modern-table th {
-  background: #f3f4f6;
+  background: #f8fafc;
   font-weight: 600;
   color: #374151;
-  font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-tbody tr:hover {
-  background: #f9fafb;
-  transition: background 0.15s;
+.modern-table th,
+.modern-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 /* Filter Row */
-.filter-row input,
-.filter-row select {
+.filter-row th {
+  background: #f1f5f9;
+  padding: 8px 16px;
+}
+
+.filter-input,
+.filter-select {
   width: 100%;
-  padding: 4px 6px;
-  font-size: 0.75rem;
+  padding: 6px 8px;
   border: 1px solid #d1d5db;
   border-radius: 4px;
+  font-size: 0.875rem;
+  background: white;
+}
+
+.filter-input:focus,
+.filter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+/* Table Body */
+tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Cell Styles */
+.id-cell {
+  width: 80px;
+}
+
+.id-badge {
+  background: #f1f5f9;
+  color: #64748b;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: 'Monaco', 'Consolas', monospace;
+}
+
+.product-cell {
+  min-width: 200px;
+}
+
+.product-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.product-name {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.product-sku {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-family: 'Monaco', 'Consolas', monospace;
+}
+
+.color-cell {
+  min-width: 120px;
+}
+
+.color-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.color-name {
+  font-weight: 500;
+}
+
+.size-cell {
+  min-width: 80px;
+}
+
+.size-badge {
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.supplier-cell {
+  min-width: 150px;
+}
+
+.supplier-name {
+  font-weight: 500;
+}
+
+.no-supplier {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.quantity-cell {
+  text-align: center;
+  min-width: 80px;
+}
+
+.quantity-text {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #1f2937;
 }
 
 /* Empty State */
 .empty-state {
+  padding: 60px 20px;
+}
+
+.empty-content {
   text-align: center;
-  padding: 20px 0;
   color: #6b7280;
-  font-style: italic;
 }
 
 .empty-icon {
-  font-size: 2rem;
+  font-size: 3rem;
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 12px;
 }
 
-/* Popup */
-.popup-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.popup-box {
-  background: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  width: 320px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.popup-box h3 {
-  margin-bottom: 15px;
-  font-size: 1.2rem;
-  font-weight: 600;
-}
-
-.popup-box label {
-  display: block;
-  margin-bottom: 10px;
-  font-size: 0.85rem;
-}
-
-.popup-box input {
-  width: 100%;
-  padding: 6px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
+.empty-subtitle {
+  font-size: 0.875rem;
   margin-top: 4px;
+  color: #9ca3af;
 }
 
-.popup-actions {
-  margin-top: 15px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .main-content {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 16px;
+  }
+
+  .modern-table th,
+  .modern-table td {
+    padding: 8px 12px;
+  }
 }
 </style>

@@ -6,35 +6,68 @@
     <!-- Main Content -->
     <div class="main-content">
       <ModernHeader />
-      <div class="home-container">
+      <div class="dashboard-container">
         <!-- Welcome Section -->
         <section class="welcome-section">
-          <h1 class="welcome-title">👋 Welcome back, {{ username }}!</h1>
-          <p class="welcome-subtitle">Manage your clothing inventory with ease.</p>
+          <div class="welcome-content">
+            <h1 class="welcome-title">👋 Welcome back, {{ username }}!</h1>
+            <p class="welcome-subtitle">Your clothing inventory management dashboard</p>
+          </div>
+          <div class="date-display">
+            {{ currentDate }}
+          </div>
         </section>
 
-        <!-- Recent Activity -->
-        <section class="activity-section">
-          <h2>📦 Recent Stock Movements</h2>
-          <ul>
-            <li v-for="move in recentStock" :key="move.id" class="activity-item">
-              <span>{{ move.timestamp }}:</span>
-              <strong>{{ move.change > 0 ? "Added" : "Removed" }}</strong>
-              {{ Math.abs(move.change) }} units of
-              <em>{{ move.variant }}</em> ({{ move.size }})
-            </li>
-          </ul>
+        <!-- User Guide Section -->
+        <section class="guide-section">
+          <h2 class="section-title">Getting Started Guide</h2>
+          <div class="guide-grid">
+            <div class="guide-card">
+              <div class="guide-icon">📝</div>
+              <h3>Setup Basics</h3>
+              <ul>
+                <li>Add Products with SKU codes</li>
+                <li>Create Color options</li>
+                <li>Create Size options</li>
+                <li>Register Suppliers</li>
+                <li>Add Stock</li>
+              </ul>
+            </div>
+
+            <div class="guide-card">
+              <div class="guide-icon">🧾</div>
+              <h3>Create Packing Slips</h3>
+              <ul>
+                <li>Select/create customer</li>
+                <li>Choose colors and sizes</li>
+                <li>Set quantities and prices</li>
+                <li>Generate packing slips in reports</li>
+              </ul>
+            </div>
+          </div>
         </section>
 
+        <!-- Recent Packing Slips -->
         <section class="activity-section">
-          <h2>🧾 Recent Invoices</h2>
-          <ul>
-            <li v-for="invoice in recentInvoices" :key="invoice.id" class="activity-item">
-              <span>{{ invoice.date }}</span> →
-              <strong>{{ invoice.customer?.name }}</strong>
-              ({{ invoice.total_items }} items)
-            </li>
-          </ul>
+          <div class="section-header">
+            <h2>🧾 Recent Packing Slips</h2>
+            <button class="view-all-btn" @click="navigateTo('/packing-slips')">View All</button>
+          </div>
+          <div class="activity-list">
+            <div v-for="slip in recentSlips" :key="slip.id" class="activity-item">
+              <div class="activity-icon">📄</div>
+              <div class="activity-content">
+                <div class="activity-title">{{ slip.slip_number }}</div>
+                <div class="activity-details">
+                  {{ slip.customer?.name || 'No Customer' }} • {{ slip.total_items }} items
+                </div>
+                <div class="activity-date">{{ formatDate(slip.created_at) }}</div>
+              </div>
+            </div>
+            <div v-if="recentSlips.length === 0" class="empty-activity">
+              No recent packing slips
+            </div>
+          </div>
         </section>
       </div>
     </div>
@@ -42,42 +75,46 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
+import { useRouter } from 'vue-router';
 import axios from "../plugins/axios.js";
 import ModernHeader from '../components/header.vue';
 import Sidebar from '../components/Sidebar.vue';
 
+const router = useRouter();
 const username = localStorage.getItem("username") || "User";
 
-const stats = ref({
-  products: 0,
-  customers: 0,
-  stock: 0,
-  invoices: 0,
+const recentSlips = ref([]);
+
+const currentDate = computed(() => {
+  return new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
 });
 
-const recentStock = ref([]);
-const recentInvoices = ref([]);
+// Methods
+const navigateTo = (path) => {
+  router.push(path);
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
 
 onMounted(async () => {
   try {
-    const [products, customers, stock, invoices, stockMovements] = await Promise.all([
-      axios.get("products/"),
-      axios.get("customers/"),
-      axios.get("stock-items/"),
-      axios.get("invoices/"),
-      axios.get("stock-movements/?limit=5"),
+    const [packingSlips] = await Promise.all([
+      axios.get("packingslips/?limit=5"),
     ]);
 
-    stats.value.products = products.data.length;
-    stats.value.customers = customers.data.length;
-    stats.value.stock = stock.data.length;
-    stats.value.invoices = invoices.data.length;
-
-    recentStock.value = stockMovements.data.slice(0, 5);
-    recentInvoices.value = invoices.data.slice(0, 5);
+    recentSlips.value = packingSlips.data.slice(0, 5);
   } catch (err) {
-    console.error("Error fetching home data:", err);
+    console.error("Error fetching dashboard data:", err);
   }
 });
 </script>
@@ -87,7 +124,6 @@ onMounted(async () => {
   display: flex;
 }
 
-/* Push content aside */
 .main-content {
   margin-left: 260px;
   flex: 1;
@@ -95,56 +131,247 @@ onMounted(async () => {
   min-height: 100vh;
 }
 
-.home-container {
+.dashboard-container {
   padding: 30px;
-  font-family: "Segoe UI", sans-serif;
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #333;
 }
 
 /* Welcome Section */
 .welcome-section {
-  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   margin-bottom: 30px;
 }
 
 .welcome-title {
-  font-size: 2rem;
-  font-weight: bold;
-  color: #00923f;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
 }
 
 .welcome-subtitle {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   color: #6b7280;
-  margin-top: 5px;
+  margin-top: 8px;
 }
 
-/* Recent Activity */
-.activity-section {
-  margin-top: 30px;
-  background: white;
-  padding: 20px;
+.date-display {
+  font-size: 1.1rem;
+  color: #667eea;
+  font-weight: 600;
+  background: #f0f4ff;
+  padding: 12px 20px;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.activity-section h2 {
+/* Section Titles */
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 20px;
+}
+
+/* Guide Section */
+.guide-section {
+  background: white;
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+}
+
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 30px;
+}
+
+.guide-card {
+  background: #f8fafc;
+  padding: 30px;
+  border-radius: 12px;
+  border-left: 4px solid #667eea;
+  transition: transform 0.2s ease;
+}
+
+.guide-card:hover {
+  transform: translateX(5px);
+}
+
+.guide-icon {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+}
+
+.guide-card h3 {
   font-size: 1.3rem;
-  margin-bottom: 15px;
-  color: #374151;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 20px;
+}
+
+.guide-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.guide-card li {
+  padding: 8px 0;
+  color: #4b5563;
+  position: relative;
+  padding-left: 20px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.guide-card li:before {
+  content: "•";
+  color: #667eea;
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+  font-size: 1.2rem;
+}
+
+/* Activity Section */
+.activity-section {
+  background: white;
+  padding: 25px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-header h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.view-all-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.view-all-btn:hover {
+  background: #5a6fd8;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
 .activity-item {
-  font-size: 0.95rem;
-  margin-bottom: 10px;
-  color: #4b5563;
+  display: flex;
+  gap: 15px;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 10px;
+  transition: background 0.2s ease;
 }
 
-.activity-item strong {
-  color: #111827;
+.activity-item:hover {
+  background: #f1f5f9;
 }
 
-.activity-item em {
-  color: #2563eb;
-  font-style: normal;
+.activity-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e0e7ff;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.activity-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-title {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-details {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.activity-date {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.empty-activity {
+  text-align: center;
+  color: #9ca3af;
+  font-style: italic;
+  padding: 30px;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .guide-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+  }
+
+  .dashboard-container {
+    padding: 20px;
+  }
+
+  .welcome-section {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+
+  .guide-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .guide-card {
+    padding: 20px;
+  }
 }
 </style>

@@ -11,6 +11,8 @@ import Reports from '../pages/reports.vue'
 import LoginPage from '../views/Login.vue'
 import Home from '../pages/Home.vue'
 import AddStock from '../pages/AddStock.vue'
+import PackingSlip from '../pages/PackingSlip.vue'
+import Suppliers from '../pages/SuppliersPage.vue'
 
 const routes = [
   { path: '/login', component: LoginPage },
@@ -25,6 +27,8 @@ const routes = [
   { path: '/reports', component: Reports },
   { path: '/home', component: Home },
   { path: '/addstock', component: AddStock },
+  { path: '/packingslip', component: PackingSlip },
+  { path: '/suppliers', component: Suppliers },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })

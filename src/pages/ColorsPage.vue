@@ -1,537 +1,390 @@
 <template>
-  <div>
-    <!-- Modern Header -->
-    <ModernHeader />
+  <div class="layout">
+    <!-- Sidebar -->
+    <Sidebar />
 
-    <!-- Page Container -->
-    <div class="dashboard-container">
-      <!-- Stats Header -->
-     
+    <!-- Main Content -->
+    <div class="main-content">
+      <ModernHeader />
 
-      
+      <div class="form-container">
+        <h2 class="page-title"> Manage Colors</h2>
 
-      <!-- Colors Table -->
-      <div class="table-wrapper">
-        <table class="modern-table">
-          <thead>
-            <tr>
-              <th>
-                <input type="checkbox" class="row-checkbox">
-              </th>
-              <th>ID</th>
-              <th>Color Name</th>
-              <th>Hex Code</th>
-              
-             
-              
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="color in colors" :key="color.id" class="table-row">
-              <td>
-                <input type="checkbox" class="row-checkbox">
-              </td>
-              <td class="id-cell">{{ color.id }}</td>
-              <td class="name-cell">
-                <div class="color-display">
-                 
-                  {{ color.name }}
-                </div>
-              </td>
-              <td class="hex-cell">{{ color.hex_code || 'Not set' }}</td>
-              
-              
-             
-              <td class="actions-cell">
-                <button class="action-btn edit" @click="editColor(color)">Edit</button>
-                <button class="action-btn delete" @click="deleteColor(color.id)">Delete</button>
-              </td>
-            </tr>
-            <tr v-if="colors.length === 0">
-              <td colspan="8" class="empty-state">
-                <div class="empty-content">
-                  <span class="empty-icon">🎨</span>
-                  <p>No colors available</p>
-                  <button class="add-first-btn" @click="showAddForm = true">Add First Color</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Color Modal -->
-      <div v-if="showAddForm" class="modal-overlay" @click="showAddForm = false">
-        <div class="modal-content" @click.stop>
-          <div class="modal-header">
-            <h3>Add New Color</h3>
-            <button class="close-btn" @click="showAddForm = false">×</button>
+        <!-- Add Color Form -->
+        <div class="add-color-section">
+          <h3 class="section-title">Add New Color</h3>
+          <div class="color-form">
+            <div class="form-group">
+              <label for="colorName">Color Name *</label>
+              <input type="text" id="colorName" v-model="newColor.name" placeholder="Enter color name"
+                class="color-input" @keyup.enter="addColor" />
+            </div>
+            <div class="form-group">
+              <label for="hexCode">Hex Code (Optional)</label>
+              <div class="hex-input-wrapper">
+                <input type="text" id="hexCode" v-model="newColor.hex_code" placeholder="#FFFFFF"
+                  class="color-input hex-input" maxlength="7" />
+                <div class="color-preview" :style="{ backgroundColor: newColor.hex_code || '#f0f0f0' }"></div>
+              </div>
+            </div>
+            <button class="btn add-btn" @click="addColor" :disabled="!newColor.name">
+              ➕ Add Color
+            </button>
           </div>
-          <form @submit.prevent="addColor" class="modal-form">
-            <div class="form-group">
-              <label>Color Name</label>
-              <input v-model="newColor" placeholder="Enter color name" class="form-input" required>
+        </div>
+
+        <!-- Colors List -->
+        <div class="colors-list-section">
+          <h3 class="section-title">Existing Colors</h3>
+          <div v-if="colors.length === 0" class="empty-state">
+            No colors added yet. Add your first color above.
+          </div>
+          <div v-else class="colors-grid">
+            <div v-for="color in colors" :key="color.id" class="color-card">
+              <div class="color-display">
+                <!-- <div class="color-swatch" :style="{ backgroundColor: color.hex_code || '#cccccc' }"></div> -->
+                <div class="color-info">
+                  <span class="color-name">{{ color.name }}</span>
+                  <span class="color-hex" v-if="color.hex_code">{{ color.hex_code }}</span>
+                  <span class="no-hex" v-else>No hex code</span>
+                </div>
+              </div>
+              <button class="btn danger small" @click="deleteColor(color.id)">
+                ❌
+              </button>
             </div>
-            <div class="form-group">
-              <label>Hex Code</label>
-              <input v-model="newHexCode" placeholder="#FFFFFF" class="form-input">
-            </div>
-            <div class="form-actions">
-              <button type="button" class="btn-secondary" @click="showAddForm = false">Cancel</button>
-              <button type="submit" class="btn-primary">Add Color</button>
-            </div>
-          </form>
+          </div>
         </div>
       </div>
-
-      <!-- Floating Add Button -->
-      <button class="floating-add-btn" @click="showAddForm = true">
-        <span>+</span>
-      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import axios from '../plugins/axios.js';
-import ModernHeader from '../components/header.vue';
+import { ref, onMounted } from "vue";
+import axios from "../plugins/axios.js";
+import Sidebar from "../components/Sidebar.vue";
+import ModernHeader from "../components/header.vue";
 
+// Color data
 const colors = ref([]);
-const newColor = ref('');
-const newHexCode = ref('');
-const showAddForm = ref(false);
+const newColor = ref({
+  name: "",
+  hex_code: ""
+});
 
-const fetchColors = async () => {
+// Load colors on mount
+onMounted(async () => {
+  await loadColors();
+});
+
+// Load colors from API
+const loadColors = async () => {
   try {
-    const res = await axios.get('colors/');
+    const res = await axios.get("/colors/");
     colors.value = res.data;
   } catch (error) {
-    console.error('Error fetching colors:', error);
+    console.error("Error loading colors:", error);
+    alert("Error loading colors!");
   }
 };
 
+// Add new color
 const addColor = async () => {
-  if (!newColor.value.trim()) return;
+  if (!newColor.value.name.trim()) {
+    alert("Please enter a color name!");
+    return;
+  }
+
   try {
-    const res = await axios.post('colors/', { 
-      name: newColor.value,
-      hex_code: newHexCode.value 
-    });
-    colors.value.push(res.data);
-    newColor.value = '';
-    newHexCode.value = '';
-    showAddForm.value = false;
+    const colorData = {
+      name: newColor.value.name.trim()
+    };
+
+    // Only add hex_code if it's provided and not empty
+    if (newColor.value.hex_code && newColor.value.hex_code.trim()) {
+      colorData.hex_code = newColor.value.hex_code.trim();
+    }
+
+    await axios.post("/colors/", colorData);
+
+    // Reset form and reload colors
+    newColor.value = { name: "", hex_code: "" };
+    await loadColors();
+
+    alert("Color added successfully!");
   } catch (error) {
-    console.error('Error adding color:', error);
+    console.error("Error adding color:", error);
+    alert("Error adding color!");
   }
 };
 
-const editColor = (color) => {
-  // Implement edit functionality
-  console.log('Edit color:', color);
-};
+// Delete color
+const deleteColor = async (colorId) => {
+  if (!confirm("Are you sure you want to delete this color?")) {
+    return;
+  }
 
-const deleteColor = async (id) => {
-  if (!confirm('Are you sure you want to delete this color?')) return;
   try {
-    await axios.delete(`colors/${id}/`);
-    colors.value = colors.value.filter(c => c.id !== id);
+    await axios.delete(`/colors/${colorId}/`);
+    await loadColors();
+    alert("Color deleted successfully!");
   } catch (error) {
-    console.error('Error deleting color:', error);
+    console.error("Error deleting color:", error);
+    alert("Error deleting color!");
   }
 };
-
-onMounted(fetchColors);
 </script>
 
 <style scoped>
-.dashboard-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 20px;
-  background-color: #f8fafc;
-  min-height: 100vh;
+.layout {
+  display: flex;
 }
 
-/* Stats Header */
-.stats-header {
-  background: white;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  margin-bottom: 20px;
+.main-content {
+  margin-left: 235px;
+  flex: 1;
+  min-height: 100vh;
+  background: #f9fafb;
+  padding: 20px;
+}
+
+.form-container {
+  background: #fff;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-width: 800px;
 }
 
 .page-title {
-  font-size: 2.5rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  color: #1a202c;
-  margin-bottom: 20px;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-
-.stat-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
-  border-radius: 10px;
-  color: white;
+  margin-bottom: 30px;
+  color: #333;
   text-align: center;
 }
 
-.stat-label {
-  display: block;
-  font-size: 0.9rem;
-  opacity: 0.9;
-  margin-bottom: 5px;
-}
-
-.stat-value {
-  display: block;
-  font-size: 2rem;
-  font-weight: 700;
-}
-
-/* Control Bar */
-.control-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: white;
-  padding: 15px 20px;
-  border-radius: 10px;
+.section-title {
+  font-size: 1.2rem;
+  font-weight: 600;
   margin-bottom: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  color: #555;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 8px;
 }
 
-.control-left {
+/* Add Color Form */
+.add-color-section {
+  margin-bottom: 40px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.color-form {
   display: flex;
-  gap: 10px;
+  gap: 15px;
+  align-items: flex-end;
+  flex-wrap: wrap;
 }
 
-.control-btn {
-  padding: 8px 16px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.control-btn.active,
-.control-btn:hover {
-  background: #4f46e5;
-  color: white;
-  border-color: #4f46e5;
-}
-
-.control-right {
+.form-group {
   display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.search-box {
-  display: flex;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.search-input {
-  padding: 8px 12px;
-  border: none;
-  outline: none;
+  flex-direction: column;
+  flex: 1;
   min-width: 200px;
 }
 
-.search-btn {
-  padding: 8px 12px;
-  background: #f8fafc;
-  border: none;
-  cursor: pointer;
+.form-group label {
+  margin-bottom: 5px;
+  font-weight: 600;
+  color: #555;
+  font-size: 0.9rem;
 }
 
-.filter-btn,
-.export-btn {
-  padding: 8px 16px;
-  border: 1px solid #e2e8f0;
-  background: white;
+.color-input {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.color-input:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+}
+
+.hex-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.hex-input {
+  padding-right: 50px;
+  text-transform: uppercase;
+  font-family: monospace;
+}
+
+.color-preview {
+  position: absolute;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  background: #f0f0f0;
+}
+
+.add-btn {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 10px 20px;
   border-radius: 6px;
   cursor: pointer;
-}
-
-/* Table Styles */
-.table-wrapper {
-  background: white;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.modern-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.modern-table th {
-  background: #f7fafc;
-  padding: 15px 12px;
-  text-align: left;
   font-weight: 600;
-  color: #4a5568;
-  border-bottom: 2px solid #e2e8f0;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  height: fit-content;
 }
 
-.modern-table td {
-  padding: 12px;
-  border-bottom: 1px solid #e2e8f0;
+.add-btn:hover:not(:disabled) {
+  background: #45a049;
+  transform: translateY(-1px);
 }
 
-.table-row:hover {
-  background: #f7fafc;
+.add-btn:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+  transform: none;
 }
 
-/* Specific Cell Styles */
-.id-cell {
-  font-weight: 600;
-  color: #4f46e5;
+/* Colors List */
+.colors-list-section {
+  padding: 0 20px;
 }
 
-.name-cell {
-  font-weight: 500;
+.empty-state {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 40px 20px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px dashed #ddd;
+}
+
+.colors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.color-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.color-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
 }
 
 .color-display {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  flex: 1;
 }
 
-.color-dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid #e2e8f0;
+.color-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  border: 2px solid #e0e0e0;
+  flex-shrink: 0;
 }
 
-.hex-cell {
-  font-family: monospace;
-  color: #718096;
-}
-
-.usage-cell {
-  text-align: center;
-  font-weight: 600;
-}
-
-.status-badge {
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.status-badge.active {
-  background: #c6f6d5;
-  color: #276749;
-}
-
-.date-cell {
-  color: #718096;
-  font-size: 0.9rem;
-}
-
-.actions-cell {
+.color-info {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.action-btn {
-  padding: 6px 12px;
+.color-name {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.color-hex {
+  font-size: 0.8rem;
+  color: #666;
+  font-family: monospace;
+}
+
+.no-hex {
+  font-size: 0.8rem;
+  color: #999;
+  font-style: italic;
+}
+
+/* Buttons */
+.btn {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-.action-btn.edit {
-  background: #bee3f8;
-  color: #2c5282;
-}
-
-.action-btn.delete {
-  background: #fed7d7;
-  color: #c53030;
-}
-
-/* Checkbox */
-.row-checkbox {
-  transform: scale(1.2);
-}
-
-/* Empty State */
-.empty-state {
-  padding: 60px 20px;
-  text-align: center;
-}
-
-.empty-content {
-  color: #a0aec0;
-}
-
-.empty-icon {
-  font-size: 3rem;
-  display: block;
-  margin-bottom: 10px;
-}
-
-.add-first-btn {
-  margin-top: 10px;
-  padding: 10px 20px;
-  background: #4f46e5;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  padding: 0;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #1a202c;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: #718096;
-}
-
-.modal-form {
-  padding: 30px;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
   font-weight: 600;
-  color: #4a5568;
+  transition: all 0.2s;
 }
 
-.form-input {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  font-size: 1rem;
+.btn.danger {
+  background: #f44336;
+  color: #fff;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
 }
 
-.form-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
+.btn.danger:hover {
+  background: #d32f2f;
 }
 
-.btn-secondary {
-  padding: 10px 20px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  border-radius: 6px;
-  cursor: pointer;
+.btn.small {
+  padding: 4px 8px;
+  font-size: 0.8rem;
 }
 
-.btn-primary {
-  padding: 10px 20px;
-  background: #4f46e5;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-/* Floating Button */
-.floating-add-btn {
-  position: fixed;
-  bottom: 30px;
-  right: 30px;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: #4f46e5;
-  color: white;
-  border: none;
-  font-size: 2rem;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-  transition: transform 0.2s;
-}
-
-.floating-add-btn:hover {
-  transform: scale(1.1);
-}
-
-
+/* Responsive */
 @media (max-width: 768px) {
-  .stats-grid {
+  .color-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-group {
+    min-width: auto;
+  }
+
+  .colors-grid {
     grid-template-columns: 1fr;
   }
-  
-  .control-bar {
-    flex-direction: column;
-    gap: 15px;
-  }
-  
-  .control-left, .control-right {
-    width: 100%;
-    justify-content: center;
-  }
-  
-  .table-wrapper {
-    overflow-x: auto;
+
+  .main-content {
+    margin-left: 0;
+    padding: 15px;
   }
 }
 </style>

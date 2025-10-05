@@ -15,14 +15,13 @@
             <router-link to="/addstock" class="menu-item" active-class="active">
                 📦 Add Stock
             </router-link>
-            <router-link to="/purchase-list" class="menu-item" active-class="active">
-                📜 Purchase List
+
+            <router-link to="/packingslip" class="menu-item" active-class="active">
+                🧾 Packing Slip
             </router-link>
-            <router-link to="/return-list" class="menu-item" active-class="active">
-                ↩ Return List
-            </router-link>
-            <router-link to="/sales" class="menu-item" active-class="active">
-                💰 Sale
+
+            <router-link to="/stock-movements" class="menu-item" active-class="active">
+                🔁 Stock Movements
             </router-link>
 
             <div class="menu-section">People</div>
@@ -45,22 +44,16 @@
             <router-link to="/reports" class="menu-item" active-class="active">
                 📑 Reports
             </router-link>
-            <router-link to="/inventory-report" class="menu-item" active-class="active">
-                📑 Inventory Report
-            </router-link>
-            <router-link to="/out-of-stock" class="menu-item" active-class="active">
-                ⚠ Out of Stock Report
+
+
+            <div class="menu-section">Product Setup</div>
+
+            <router-link to="/colors" class="menu-item" active-class="active">
+                🎨 Colors
             </router-link>
 
-            <div class="menu-section">Account</div>
-            <router-link to="/setup" class="menu-item" active-class="active">
-                ⚙ Setup
-            </router-link>
-            <router-link to="/backup" class="menu-item" active-class="active">
-                💾 Database Backup
-            </router-link>
-            <router-link to="/account" class="menu-item" active-class="active">
-                👤 Account
+            <router-link to="/sizes" class="menu-item" active-class="active">
+                📏 Sizes
             </router-link>
         </nav>
     </aside>
