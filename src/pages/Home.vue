@@ -18,54 +18,68 @@
           </div>
         </section>
 
-        <!-- User Guide Section -->
-        <section class="guide-section">
-          <h2 class="section-title">Getting Started Guide</h2>
-          <div class="guide-grid">
-            <div class="guide-card">
-              <div class="guide-icon">📝</div>
-              <h3>Setup Basics</h3>
-              <ul>
-                <li>Add Products with SKU codes</li>
-                <li>Create Color options</li>
-                <li>Create Size options</li>
-                <li>Register Suppliers</li>
-                <li>Add Stock</li>
-              </ul>
-            </div>
-
-            <div class="guide-card">
-              <div class="guide-icon">🧾</div>
-              <h3>Create Packing Slips</h3>
-              <ul>
-                <li>Select/create customer</li>
-                <li>Choose colors and sizes</li>
-                <li>Set quantities and prices</li>
-                <li>Generate packing slips in reports</li>
-              </ul>
+        <!-- Dashboard Stats Grid -->
+        <section class="stats-grid">
+          <!-- Last Backup -->
+          <div class="stat-card">
+            <div class="stat-icon">💾</div>
+            <div class="stat-content">
+              <h3 class="stat-title">Last Backup</h3>
+              <p class="stat-value" v-if="lastBackup.file_name">{{ lastBackup.file_name }}</p>
+              <p class="stat-value" v-else>No backup taken</p>
+              <p class="stat-details">
+                <span v-if="lastBackup.last_backup_at">Date: {{ formatDateTime(lastBackup.last_backup_at) }}</span>
+                <span v-if="lastBackup.performed_by"> • By: {{ lastBackup.performed_by }}</span>
+              </p>
             </div>
           </div>
-        </section>
 
-        <!-- Recent Packing Slips -->
-        <section class="activity-section">
-          <div class="section-header">
-            <h2>🧾 Recent Packing Slips</h2>
-            <button class="view-all-btn" @click="navigateTo('/packing-slips')">View All</button>
-          </div>
-          <div class="activity-list">
-            <div v-for="slip in recentSlips" :key="slip.id" class="activity-item">
-              <div class="activity-icon">📄</div>
-              <div class="activity-content">
-                <div class="activity-title">{{ slip.slip_number }}</div>
-                <div class="activity-details">
-                  {{ slip.customer?.name || 'No Customer' }} • {{ slip.total_items }} items
-                </div>
-                <div class="activity-date">{{ formatDate(slip.created_at) }}</div>
-              </div>
+          <!-- Last Login -->
+          <div class="stat-card">
+            <div class="stat-icon">👤</div>
+            <div class="stat-content">
+              <h3 class="stat-title">Last Login</h3>
+              <p class="stat-value">{{ lastLogin.username || 'N/A' }}</p>
+              <p class="stat-details" v-if="lastLogin.last_login">
+                {{ formatDateTime(lastLogin.last_login) }}
+              </p>
+              <p class="stat-details" v-else>
+                No login data
+              </p>
             </div>
-            <div v-if="recentSlips.length === 0" class="empty-activity">
-              No recent packing slips
+          </div>
+
+          <!-- Recent Packing Slip -->
+          <div class="stat-card">
+            <div class="stat-icon">🧾</div>
+            <div class="stat-content">
+              <h3 class="stat-title">Recent Packing Slip</h3>
+              <p class="stat-value">{{ lastPackingSlip.slip_number || 'No slips' }}</p>
+              <p class="stat-details" v-if="lastPackingSlip.customer">
+                Customer: {{ lastPackingSlip.customer }}
+                <span v-if="lastPackingSlip.created_by"> • By: {{ lastPackingSlip.created_by }}</span>
+              </p>
+              <p class="stat-details" v-if="lastPackingSlip.created_at">
+                {{ formatDateTime(lastPackingSlip.created_at) }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Recent Stock Addition -->
+          <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-content">
+              <h3 class="stat-title">Recent Stock</h3>
+              <p class="stat-value">{{ lastStock.product || 'No stock added' }}</p>
+              <p class="stat-details" v-if="lastStock.product">
+                {{ lastStock.color }} • {{ lastStock.size }} • Qty: {{ lastStock.quantity }}
+              </p>
+              <p class="stat-details" v-if="lastStock.supplier">
+                Supplier: {{ lastStock.supplier }}
+              </p>
+              <p class="stat-details" v-if="lastStock.added_at && lastStock.added_at !== 'N/A'">
+                {{ formatDateTime(lastStock.added_at) }}
+              </p>
             </div>
           </div>
         </section>
@@ -76,15 +90,17 @@
 
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import { useRouter } from 'vue-router';
 import axios from "../plugins/axios.js";
 import ModernHeader from '../components/header.vue';
 import Sidebar from '../components/Sidebar.vue';
 
-const router = useRouter();
 const username = localStorage.getItem("username") || "User";
 
-const recentSlips = ref([]);
+// Data for dashboard stats
+const lastBackup = ref({});
+const lastLogin = ref({});
+const lastPackingSlip = ref({});
+const lastStock = ref({});
 
 const currentDate = computed(() => {
   return new Date().toLocaleDateString('en-US', {
@@ -96,26 +112,69 @@ const currentDate = computed(() => {
 });
 
 // Methods
-const navigateTo = (path) => {
-  router.push(path);
-};
+const formatDateTime = (dateString) => {
+  if (!dateString || dateString === 'N/A') return 'N/A';
 
-const formatDate = (dateString) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
-
-onMounted(async () => {
-  try {
-    const [packingSlips] = await Promise.all([
-      axios.get("packingslips/?limit=5"),
-    ]);
-
-    recentSlips.value = packingSlips.data.slice(0, 5);
-  } catch (err) {
-    console.error("Error fetching dashboard data:", err);
+  // Handle both ISO format and "YYYY-MM-DD HH:mm:ss" format
+  let date;
+  if (dateString.includes('T')) {
+    date = new Date(dateString);
+  } else {
+    // Replace space with T for ISO format
+    date = new Date(dateString.replace(' ', 'T'));
   }
+
+  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+const fetchDashboardData = async () => {
+  try {
+    const endpoints = [
+      { key: 'lastBackup', url: 'dashboard/last-backup/' },
+      { key: 'lastLogin', url: 'dashboard/last-login/' },
+      { key: 'lastPackingSlip', url: 'dashboard/last-slip/' },
+      { key: 'lastStock', url: 'dashboard/last-stock/' }
+    ];
+
+    const requests = endpoints.map(endpoint =>
+      axios.get(endpoint.url).then(response => ({
+        key: endpoint.key,
+        data: response.data
+      })).catch(error => {
+        console.error(`Error fetching ${endpoint.key}:`, error);
+        return { key: endpoint.key, data: {} };
+      })
+    );
+
+    const results = await Promise.all(requests);
+
+    results.forEach(result => {
+      switch (result.key) {
+        case 'lastBackup':
+          lastBackup.value = result.data;
+          break;
+        case 'lastLogin':
+          lastLogin.value = result.data;
+          break;
+        case 'lastPackingSlip':
+          lastPackingSlip.value = result.data;
+          break;
+        case 'lastStock':
+          lastStock.value = result.data;
+          break;
+      }
+    });
+
+  } catch (error) {
+    console.error("Error fetching dashboard data:", error);
+  }
+};
+
+onMounted(() => {
+  fetchDashboardData();
 });
 </script>
 
@@ -171,182 +230,73 @@ onMounted(async () => {
   border-radius: 12px;
 }
 
-/* Section Titles */
-.section-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 20px;
-}
-
-/* Guide Section */
-.guide-section {
-  background: white;
-  padding: 30px;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  margin-bottom: 30px;
-}
-
-.guide-grid {
+/* Stats Grid */
+.stats-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 30px;
+  gap: 25px;
 }
 
-.guide-card {
-  background: #f8fafc;
-  padding: 30px;
-  border-radius: 12px;
-  border-left: 4px solid #667eea;
-  transition: transform 0.2s ease;
-}
-
-.guide-card:hover {
-  transform: translateX(5px);
-}
-
-.guide-icon {
-  font-size: 2.5rem;
-  margin-bottom: 20px;
-}
-
-.guide-card h3 {
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 20px;
-}
-
-.guide-card ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.guide-card li {
-  padding: 8px 0;
-  color: #4b5563;
-  position: relative;
-  padding-left: 20px;
-  font-size: 1rem;
-  line-height: 1.5;
-}
-
-.guide-card li:before {
-  content: "•";
-  color: #667eea;
-  font-weight: bold;
-  position: absolute;
-  left: 0;
-  font-size: 1.2rem;
-}
-
-/* Activity Section */
-.activity-section {
+.stat-card {
   background: white;
   padding: 25px;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-}
-
-.section-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  align-items: flex-start;
+  gap: 20px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.section-header h2 {
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
 }
 
-.view-all-btn {
-  background: #667eea;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 500;
-  transition: background 0.2s ease;
-}
-
-.view-all-btn:hover {
-  background: #5a6fd8;
-}
-
-.activity-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.activity-item {
-  display: flex;
-  gap: 15px;
-  padding: 15px;
-  background: #f8fafc;
-  border-radius: 10px;
-  transition: background 0.2s ease;
-}
-
-.activity-item:hover {
-  background: #f1f5f9;
-}
-
-.activity-icon {
-  width: 40px;
-  height: 40px;
+.stat-icon {
+  font-size: 2.5rem;
+  width: 60px;
+  height: 60px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #e0e7ff;
-  border-radius: 8px;
-  font-size: 1.2rem;
+  background: #f0f4ff;
+  border-radius: 12px;
   flex-shrink: 0;
 }
 
-.activity-content {
+.stat-content {
   flex: 1;
   min-width: 0;
 }
 
-.activity-title {
+.stat-title {
+  font-size: 1.1rem;
   font-weight: 600;
   color: #1f2937;
-  margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  margin: 0 0 12px 0;
 }
 
-.activity-details {
+.stat-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #667eea;
+  margin: 0 0 8px 0;
+  word-break: break-word;
+}
+
+.stat-details {
   font-size: 0.85rem;
   color: #6b7280;
-  margin-bottom: 4px;
-}
-
-.activity-date {
-  font-size: 0.8rem;
-  color: #9ca3af;
-}
-
-.empty-activity {
-  text-align: center;
-  color: #9ca3af;
-  font-style: italic;
-  padding: 30px;
+  margin: 4px 0;
+  line-height: 1.4;
 }
 
 /* Responsive Design */
 @media (max-width: 1200px) {
-  .guide-grid {
+  .stats-grid {
     grid-template-columns: 1fr;
+    gap: 20px;
   }
 }
 
@@ -363,15 +313,40 @@ onMounted(async () => {
     flex-direction: column;
     gap: 15px;
     text-align: center;
-  }
-
-  .guide-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
-  .guide-card {
     padding: 20px;
+  }
+
+  .welcome-title {
+    font-size: 2rem;
+  }
+
+  .stat-card {
+    padding: 20px;
+    flex-direction: column;
+    text-align: center;
+    gap: 15px;
+  }
+
+  .stat-icon {
+    align-self: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-container {
+    padding: 15px;
+  }
+
+  .welcome-section {
+    padding: 15px;
+  }
+
+  .welcome-title {
+    font-size: 1.8rem;
+  }
+
+  .stat-card {
+    padding: 15px;
   }
 }
 </style>

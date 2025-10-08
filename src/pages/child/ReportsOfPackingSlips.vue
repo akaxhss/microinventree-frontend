@@ -13,7 +13,7 @@
       <div class="filters-grid">
         <div class="filter-group">
           <label>Select Customer</label>
-          <select v-model="selectedCustomerId" class="filter-select">
+          <select v-model="selectedCustomerId" class="filter-select" @change="handleCustomerChange">
             <option value="">All Customers</option>
             <option v-for="customer in customers" :key="customer.id" :value="customer.id">
               {{ customer.name }}
@@ -37,10 +37,10 @@
         </div>
 
         <div class="filter-actions">
-          <button class="generate-btn" @click="fetchPackingSlips">
-            Generate Report
+          <button class="generate-btn" @click="fetchPackingSlips(1)" :disabled="loading">
+            {{ loading ? 'Loading...' : 'Generate Report' }}
           </button>
-          <button class="reset-btn" @click="resetFilters">
+          <button class="reset-btn" @click="resetFilters" :disabled="loading">
             Reset Filters
           </button>
         </div>
@@ -65,9 +65,12 @@
     <!-- Packing Slips List -->
     <div v-if="packingSlips.length" class="slips-container">
       <div class="results-header">
-        <h3> Packing Slips ({{ packingSlips.length }})</h3>
+        <h3> Packing Slips ({{ showPagination ? totalCount : packingSlips.length }})</h3>
         <div class="results-summary">
           Total Items: {{ totalItems }}
+          <span v-if="showPagination" class="pagination-info">
+            • Page {{ currentPage }} of {{ totalPages }}
+          </span>
         </div>
       </div>
 
@@ -86,7 +89,7 @@
 
             <div class="slip-customer-info">
               <div class="customer-name">
-                <strong>{{ getCustomerName(slip.customer) }}</strong>
+                <strong>{{ slip.customer_name || getCustomerName(slip.customer) }}</strong>
               </div>
               <div class="slip-meta">
                 {{ slip.lines.length }} items • Created: {{ formatDateTime(slip.created_at) }}
@@ -158,24 +161,56 @@
           </div>
         </div>
       </div>
+
+      <!-- Pagination - Only show when "All Customers" is selected -->
+      <div v-if="showPagination && totalPages > 1" class="pagination-container">
+        <div class="pagination-info">
+          Showing {{ (currentPage - 1) * pageSize + 1 }}-{{ Math.min(currentPage * pageSize, totalCount) }} of {{
+            totalCount }} results
+        </div>
+        <div class="pagination-controls">
+          <button class="pagination-btn" :disabled="currentPage === 1 || loading"
+            @click="() => goToPage(currentPage - 1)">
+            Previous
+          </button>
+
+          <div class="page-numbers">
+            <button v-for="page in visiblePages" :key="page" class="page-number"
+              :class="{ active: page === currentPage }" @click="() => goToPage(page)" :disabled="loading">
+              {{ page }}
+            </button>
+            <span v-if="showEllipsis" class="page-ellipsis">...</span>
+          </div>
+
+          <button class="pagination-btn" :disabled="currentPage === totalPages || loading"
+            @click="() => goToPage(currentPage + 1)">
+            Next
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="hasSearched" class="empty-state">
+    <div v-else-if="hasSearched && !loading" class="empty-state">
       <div class="empty-icon">📦</div>
       <h3>No Packing Slips Found</h3>
       <p>Try adjusting your filters or create new packing slips</p>
     </div>
 
     <!-- Initial State -->
-    <div v-else class="initial-state">
+    <div v-else-if="!hasSearched && !loading" class="initial-state">
       <div class="initial-icon">🔍</div>
       <h3>Generate Packing Slip Reports</h3>
       <p>Select filters above to view and export packing slips</p>
     </div>
+
+    <!-- Loading State -->
+    <div v-if="loading" class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <p>Loading packing slips...</p>
+    </div>
   </div>
 </template>
-
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
@@ -193,6 +228,15 @@ const startDate = ref("");
 const endDate = ref("");
 const expandedSlip = ref(null);
 const hasSearched = ref(false);
+const loading = ref(false);
+
+// Pagination data
+const currentPage = ref(1);
+const totalCount = ref(0);
+const totalPages = ref(0);
+const pageSize = 50;
+const nextPage = ref(null);
+const previousPage = ref(null);
 
 const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL"];
 
@@ -211,6 +255,33 @@ const totalItems = computed(() => {
   }, 0);
 });
 
+const showPagination = computed(() => {
+  return !selectedCustomerId.value && !singleDate.value && !startDate.value && !endDate.value;
+});
+
+// Pagination computed properties
+const visiblePages = computed(() => {
+  const pages = [];
+  const maxVisiblePages = 5;
+  let startPage = Math.max(1, currentPage.value - Math.floor(maxVisiblePages / 2));
+  let endPage = Math.min(totalPages.value, startPage + maxVisiblePages - 1);
+
+  if (endPage - startPage + 1 < maxVisiblePages) {
+    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  }
+
+  for (let i = startPage; i <= endPage; i++) {
+    pages.push(i);
+  }
+
+  return pages;
+});
+
+const showEllipsis = computed(() => {
+  return totalPages.value > visiblePages.value.length &&
+    visiblePages.value[visiblePages.value.length - 1] < totalPages.value;
+});
+
 // Methods
 const loadCustomers = async () => {
   try {
@@ -221,11 +292,23 @@ const loadCustomers = async () => {
   }
 };
 
-const fetchPackingSlips = async () => {
+const handleCustomerChange = () => {
+  // Reset to first page when customer changes
+  currentPage.value = 1;
+};
+
+const fetchPackingSlips = async (page = 1) => {
   try {
+    loading.value = true;
     hasSearched.value = true;
 
-    if (selectedCustomerId.value || singleDate.value || (startDate.value && endDate.value)) {
+    if (showPagination.value) {
+      // Use paginated API for "All Customers" with no other filters
+      console.log('Fetching page:', page); // Debug log
+      const res = await axios.get(`/packingslippagination/?page=${page}`);
+      handlePaginationResponse(res);
+    } else {
+      // Use regular filtered API for specific customer or date filters
       const params = {};
 
       if (selectedCustomerId.value) {
@@ -241,15 +324,52 @@ const fetchPackingSlips = async () => {
 
       const res = await axios.get("/packingslipsfilter/", { params });
       packingSlips.value = res.data;
-    } else {
-      const res = await axios.get("/packingslips/");
-      packingSlips.value = res.data;
+      // Reset pagination data for filtered results
+      resetPaginationData();
     }
   } catch (error) {
     console.error("Error fetching packing slips:", error);
     alert("Error fetching packing slips!");
+  } finally {
+    loading.value = false;
   }
 };
+
+const goToPage = (page) => {
+  console.log('Going to page:', page); // Debug log
+  if (page < 1 || page > totalPages.value || loading.value) return;
+  fetchPackingSlips(page);
+};
+const handlePaginationResponse = (response) => {
+  packingSlips.value = response.data.results;
+  totalCount.value = response.data.count;
+  nextPage.value = response.data.next;
+  previousPage.value = response.data.previous;
+
+  // Extract current page from the response or URL
+  if (response.data.page) {
+    currentPage.value = response.data.page;
+  } else if (response.data.next) {
+    const urlParams = new URLSearchParams(new URL(response.data.next).search);
+    currentPage.value = parseInt(urlParams.get('page')) - 1;
+  } else if (response.data.previous) {
+    const urlParams = new URLSearchParams(new URL(response.data.previous).search);
+    currentPage.value = parseInt(urlParams.get('page')) + 1;
+  } else {
+    currentPage.value = 1;
+  }
+
+  totalPages.value = Math.ceil(totalCount.value / pageSize);
+};
+
+const resetPaginationData = () => {
+  totalCount.value = packingSlips.value.length;
+  nextPage.value = null;
+  previousPage.value = null;
+  currentPage.value = 1;
+  totalPages.value = 1;
+};
+
 
 const resetFilters = () => {
   selectedCustomerId.value = "";
@@ -259,9 +379,9 @@ const resetFilters = () => {
   packingSlips.value = [];
   hasSearched.value = false;
   expandedSlip.value = null;
+  resetPaginationData();
 };
 
-// FIXED: Added proper event handling for expand/collapse
 const toggleSlip = (id) => {
   expandedSlip.value = expandedSlip.value === id ? null : id;
 };
@@ -324,7 +444,7 @@ const groupByProduct = (lines) => {
   return result;
 };
 
-
+// Export functions remain the same
 const exportExcel = (data) => {
   const wb = XLSX.utils.book_new();
 
@@ -336,7 +456,6 @@ const exportExcel = (data) => {
     // Slip header with distributor and customer details
     wsData.push(["PACKING SLIP REPORT"]);
     wsData.push([]);
-
 
     wsData.push(["AS DISTRIBUTORS", "", "", "", "", "", "CUSTOMER DETAILS"]);
     wsData.push([distributorInfo.name, "", "", "", "", "", `Name: ${customer ? customer.name : 'Unknown'}`]);
@@ -389,7 +508,6 @@ const exportExcel = (data) => {
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-    // FIXED: Add column widths for better Excel layout
     const colWidths = [
       { wch: 20 }, // Color column
       { wch: 8 },  // S
@@ -402,7 +520,7 @@ const exportExcel = (data) => {
     ];
     ws['!cols'] = colWidths;
 
-    XLSX.utils.book_append_sheet(wb, ws, `Slip_${slip.slip_number.substring(0, 25)}`); // Limit sheet name length
+    XLSX.utils.book_append_sheet(wb, ws, `Slip_${slip.slip_number.substring(0, 25)}`);
   });
 
   XLSX.writeFile(wb, "PackingSlips_Report.xlsx");
@@ -499,6 +617,124 @@ onMounted(() => {
 
 
 <style scoped>
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
+
+.pagination-info {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pagination-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.page-number {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 2.5rem;
+}
+
+.page-number:hover {
+  background: #f3f4f6;
+}
+
+.page-number.active {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.page-ellipsis {
+  padding: 0.5rem;
+  color: #6b7280;
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.loading-spinner {
+  border: 4px solid #f3f4f6;
+  border-left: 4px solid #10b981;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.pagination-info {
+  margin-left: 10px;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+/* Keep all existing styles below */
+.reports-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
 .reports-container {
   max-width: 1400px;
   margin: 0 auto;
