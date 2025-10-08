@@ -1,21 +1,21 @@
 <template>
   <div>
     <div class="filters">
-      <label>Select Product</label>
-      <multiselect v-model="selectedProduct" :options="products" label="name" track-by="id"
-        placeholder="Choose a product" />
-      <button @click="fetchProductReport">Generate Report</button>
+      <label>Select Products</label>
+      <multiselect v-model="selectedProducts" :options="products" label="name" track-by="id" :multiple="true"
+        placeholder="Choose products" :close-on-select="false" />
+      <button @click="fetchProductReports">Generate Report</button>
     </div>
 
     <!-- Export Buttons -->
-    <div v-if="productReport" class="export-buttons">
-      <button @click="exportProductExcel(productReport)">Export Excel</button>
-      <button @click="exportProductPDF(productReport)">Export PDF</button>
+    <div v-if="productReports.length" class="export-buttons">
+      <button @click="exportAllExcel">Export All Excel</button>
+      <button @click="exportAllPDF">Export All PDF</button>
     </div>
 
-    <!-- Grouped Product Report -->
-    <div v-if="productReport" class="product-report">
-      <h3 class="product-heading">{{ productReport.product }} ({{ productReport.sku }})</h3>
+    <!-- Multiple Product Reports -->
+    <div v-for="report in productReports" :key="report.id" class="product-report">
+      <h3 class="product-heading">{{ report.product }} ({{ report.sku }})</h3>
       <div class="table-wrapper">
         <table>
           <thead>
@@ -27,7 +27,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(variant, idx) in groupedVariants" :key="variant.color">
+            <tr v-for="(variant, idx) in report.groupedVariants" :key="variant.color">
               <td>{{ idx + 1 }}</td>
               <td>{{ variant.color }}</td>
               <td v-for="size in sizeHeaders" :key="size">{{ variant.sizes[size] ?? '-' }}</td>
@@ -45,16 +45,16 @@
               <td></td>
               <td><strong>TOTAL</strong></td>
               <td v-for="size in sizeHeaders" :key="size">
-                <strong>{{ totals[size] }}</strong>
+                <strong>{{ report.totals[size] }}</strong>
               </td>
-              <td><strong>{{ totals.grand }}</strong></td>
+              <td><strong>{{ report.totals.grand }}</strong></td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <p v-else>No product report found</p>
+    <p v-if="!productReports.length && hasSearched">No product reports found</p>
   </div>
 </template>
 
@@ -68,10 +68,9 @@ import autoTable from "jspdf-autotable";
 import axios from "../../plugins/axios.js";
 
 const products = ref([]);
-const selectedProduct = ref(null);
-const productReport = ref(null);
-const groupedVariants = ref([]);
-const totals = ref({});
+const selectedProducts = ref([]);
+const productReports = ref([]);
+const hasSearched = ref(false);
 const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL"];
 
 const loadProducts = async () => {
@@ -79,73 +78,148 @@ const loadProducts = async () => {
   products.value = Array.isArray(res.data) ? res.data : [];
 };
 
-const fetchProductReport = async () => {
-  if (!selectedProduct.value) {
-    alert("Please select a product");
+const fetchProductReports = async () => {
+  if (!selectedProducts.value.length) {
+    alert("Please select at least one product");
     return;
   }
-  const res = await axios.get(`stockreport/${selectedProduct.value.id}/`);
-  productReport.value = res.data;
 
-  // Group stock by color
-  const grouped = {};
-  res.data.stock.forEach((item) => {
-    if (!grouped[item.color]) {
-      grouped[item.color] = { color: item.color, sizes: {} };
+  hasSearched.value = true;
+  productReports.value = [];
+
+  // Fetch reports for all selected products
+  for (const product of selectedProducts.value) {
+    try {
+      const res = await axios.get(`stockreport/${product.id}/`);
+      const reportData = res.data;
+
+      // Group stock by color
+      const grouped = {};
+      reportData.stock.forEach((item) => {
+        if (!grouped[item.color]) {
+          grouped[item.color] = { color: item.color, sizes: {} };
+        }
+        grouped[item.color].sizes[item.size] =
+          (grouped[item.color].sizes[item.size] || 0) + item.quantity;
+      });
+      const groupedVariants = Object.values(grouped);
+
+      // Calculate totals
+      const totalObj = {};
+      let grand = 0;
+      sizeHeaders.forEach((s) => {
+        totalObj[s] = groupedVariants.reduce(
+          (acc, v) => acc + (v.sizes[s] || 0),
+          0
+        );
+        grand += totalObj[s];
+      });
+      totalObj["grand"] = grand;
+
+      // Add to reports array with all calculated data
+      productReports.value.push({
+        id: product.id,
+        product: reportData.product,
+        sku: reportData.sku,
+        groupedVariants,
+        totals: totalObj
+      });
+    } catch (error) {
+      console.error(`Error fetching report for product ${product.id}:`, error);
     }
-    grouped[item.color].sizes[item.size] =
-      (grouped[item.color].sizes[item.size] || 0) + item.quantity;
-  });
-  groupedVariants.value = Object.values(grouped);
-
-  // Calculate totals
-  const totalObj = {};
-  let grand = 0;
-  sizeHeaders.forEach((s) => {
-    totalObj[s] = groupedVariants.value.reduce(
-      (acc, v) => acc + (v.sizes[s] || 0),
-      0
-    );
-    grand += totalObj[s];
-  });
-  totalObj["grand"] = grand;
-  totals.value = totalObj;
+  }
 };
 
-// Export to Excel with Totals
+// Export all products to Excel
+const exportAllExcel = () => {
+  const wb = XLSX.utils.book_new();
+
+  productReports.value.forEach((report, index) => {
+    const heading = [[`${report.product} (${report.sku})`]];
+    const headers = [["#", "Color", ...sizeHeaders, "Total"]];
+
+    const rows = report.groupedVariants.map((v, idx) => {
+      const rowTotal = sizeHeaders.reduce((sum, s) => sum + (v.sizes[s] || 0), 0);
+      return [idx + 1, v.color, ...sizeHeaders.map((s) => v.sizes[s] ?? 0), rowTotal];
+    });
+
+    // Add totals row
+    const totalRow = ["", "TOTAL", ...sizeHeaders.map((s) => report.totals[s]), report.totals.grand];
+
+    const sheetData = [...heading, [], ...headers, ...rows, totalRow];
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+    // Limit sheet name to 31 characters (Excel limitation)
+    const sheetName = `${report.product.substring(0, 25)}${index + 1}`;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  XLSX.writeFile(wb, "Multiple_Product_Reports.xlsx");
+};
+
+// Export all products to PDF
+const exportAllPDF = () => {
+  const doc = new jsPDF();
+
+  productReports.value.forEach((report, index) => {
+    if (index > 0) {
+      doc.addPage();
+    }
+
+    doc.setFontSize(14);
+    doc.text(`${report.product} (${report.sku})`, 14, 20);
+
+    const rows = report.groupedVariants.map((v, idx) => {
+      const rowTotal = sizeHeaders.reduce((sum, s) => sum + (v.sizes[s] || 0), 0);
+      return [idx + 1, v.color, ...sizeHeaders.map((s) => v.sizes[s] ?? 0), rowTotal];
+    });
+
+    // Add totals row
+    rows.push(["", "TOTAL", ...sizeHeaders.map((s) => report.totals[s]), report.totals.grand]);
+
+    autoTable(doc, {
+      head: [["#", "Color", ...sizeHeaders, "Total"]],
+      body: rows,
+      startY: 30,
+    });
+  });
+
+  doc.save("Multiple_Product_Reports.pdf");
+};
+
+// Single product export functions (optional - if you want to keep them)
 const exportProductExcel = (report) => {
   const wb = XLSX.utils.book_new();
   const heading = [[`${report.product} (${report.sku})`]];
   const headers = [["#", "Color", ...sizeHeaders, "Total"]];
 
-  const rows = groupedVariants.value.map((v, idx) => {
+  const rows = report.groupedVariants.map((v, idx) => {
     const rowTotal = sizeHeaders.reduce((sum, s) => sum + (v.sizes[s] || 0), 0);
     return [idx + 1, v.color, ...sizeHeaders.map((s) => v.sizes[s] ?? 0), rowTotal];
   });
 
   // Add totals row
-  const totalRow = ["", "TOTAL", ...sizeHeaders.map((s) => totals.value[s]), totals.value.grand];
+  const totalRow = ["", "TOTAL", ...sizeHeaders.map((s) => report.totals[s]), report.totals.grand];
 
   const sheetData = [...heading, [], ...headers, ...rows, totalRow];
   const ws = XLSX.utils.aoa_to_sheet(sheetData);
 
   XLSX.utils.book_append_sheet(wb, ws, "Product Report");
-  XLSX.writeFile(wb, "ProductReport.xlsx");
+  XLSX.writeFile(wb, `${report.product}_Report.xlsx`);
 };
 
-// Export to PDF with Totals
 const exportProductPDF = (report) => {
   const doc = new jsPDF();
   doc.setFontSize(14);
   doc.text(`${report.product} (${report.sku})`, 14, 20);
 
-  const rows = groupedVariants.value.map((v, idx) => {
+  const rows = report.groupedVariants.map((v, idx) => {
     const rowTotal = sizeHeaders.reduce((sum, s) => sum + (v.sizes[s] || 0), 0);
     return [idx + 1, v.color, ...sizeHeaders.map((s) => v.sizes[s] ?? 0), rowTotal];
   });
 
   // Add totals row
-  rows.push(["", "TOTAL", ...sizeHeaders.map((s) => totals.value[s]), totals.value.grand]);
+  rows.push(["", "TOTAL", ...sizeHeaders.map((s) => report.totals[s]), report.totals.grand]);
 
   autoTable(doc, {
     head: [["#", "Color", ...sizeHeaders, "Total"]],
@@ -153,7 +227,7 @@ const exportProductPDF = (report) => {
     startY: 30,
   });
 
-  doc.save("ProductReport.pdf");
+  doc.save(`${report.product}_Report.pdf`);
 };
 
 onMounted(loadProducts);
@@ -200,18 +274,26 @@ onMounted(loadProducts);
   cursor: pointer;
 }
 
+.product-report {
+  margin-bottom: 30px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+  background: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
 .product-heading {
   font-size: 1.2rem;
   font-weight: 600;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
+  color: #1f2937;
+  border-bottom: 2px solid #10b981;
+  padding-bottom: 8px;
 }
 
 .table-wrapper {
   overflow-x: auto;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 table {
@@ -233,5 +315,6 @@ th {
 
 .totals-row {
   background: #fef3c7;
+  font-weight: 600;
 }
 </style>
