@@ -11,19 +11,6 @@
                 📊 Dashboard
             </router-link>
 
-            <div class="menu-section">Activities</div>
-            <router-link to="/addstock" class="menu-item" active-class="active">
-                📦 Add Stock
-            </router-link>
-
-            <router-link to="/packingslip" class="menu-item" active-class="active">
-                🧾 Packing Slip
-            </router-link>
-
-            <router-link to="/stock-movements" class="menu-item" active-class="active">
-                🔁 Stock Movements
-            </router-link>
-
             <div class="menu-section">People</div>
             <router-link to="/customers" class="menu-item" active-class="active">
                 👤 Customers
@@ -32,12 +19,31 @@
                 🏭 Suppliers
             </router-link>
 
-            <div class="menu-section">Inventory</div>
+            <div class="menu-section">Product Setup</div>
             <router-link to="/products" class="menu-item" active-class="active">
                 📦 Products
             </router-link>
+            <router-link to="/colors" class="menu-item" active-class="active">
+                🎨 Colors
+            </router-link>
+            <router-link to="/sizes" class="menu-item" active-class="active">
+                📏 Sizes
+            </router-link>
+
+            <div class="menu-section">Inventory</div>
             <router-link to="/stock-items" class="menu-item" active-class="active">
                 📂 Inventory
+            </router-link>
+
+            <div class="menu-section">Activities</div>
+            <router-link to="/addstock" class="menu-item" active-class="active">
+                📦 Add Stock
+            </router-link>
+            <router-link to="/packingslip" class="menu-item" active-class="active">
+                🧾 Packing Slip
+            </router-link>
+            <router-link to="/stock-movements" class="menu-item" active-class="active">
+                🔁 Stock Movements
             </router-link>
 
             <div class="menu-section">Reports</div>
@@ -45,26 +51,13 @@
                 📑 Reports
             </router-link>
 
-
-            <div class="menu-section">Product Setup</div>
-
-            <router-link to="/colors" class="menu-item" active-class="active">
-                🎨 Colors
-            </router-link>
-
-            <router-link to="/sizes" class="menu-item" active-class="active">
-                📏 Sizes
-            </router-link>
-
             <div class="menu-section">Admin</div>
-
             <router-link to="/databasebackup" class="menu-item" active-class="active">
                 💾 Data Base Backup
             </router-link>
-
-            <!-- <router-link to="/sizes" class="menu-item" active-class="active">
-                📏 Sizes
-            </router-link> -->
+            <router-link to="/auditlogs" class="menu-item" active-class="active">
+                📋 Audit Logs
+            </router-link>
         </nav>
     </aside>
 </template>
