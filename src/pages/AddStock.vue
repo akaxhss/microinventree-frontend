@@ -10,6 +10,17 @@
             <div class="form-container">
                 <h2 class="page-title">➕ Add Stock</h2>
 
+                <!-- Draft Management -->
+                <div class="draft-banner" v-if="hasDraft">
+                    <div class="draft-info">
+                        <span>📋 Draft found from {{ formatDate(draftTimestamp) }}</span>
+                        <div class="draft-actions">
+                            <button class="btn draft-load" @click="loadDraft">🔄 Load Draft</button>
+                            <button class="btn draft-discard" @click="discardDraft">🗑️ Discard</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Supplier Selection -->
                 <div class="form-row">
                     <div class="form-group">
@@ -57,7 +68,8 @@
                                     </select>
                                 </td>
                                 <td class="quantity-col">
-                                    <input type="number" v-model="item.quantity" min="1" class="quantity-input" />
+                                    <input type="number" v-model="item.quantity" min="1" class="quantity-input"
+                                        @input="autoSaveDraft" />
                                 </td>
                                 <td class="action-col">
                                     <button class="btn danger" @click="removeItem(idx)">❌</button>
@@ -78,7 +90,8 @@
 
                 <!-- Save/Reset Buttons -->
                 <div class="form-actions">
-                    <button class="btn save" @click="saveStock" :disabled="!canSave">💾 Save</button>
+                    <button class="btn draft" @click="manualSaveDraft" :disabled="!hasFormData">💾 Save Draft</button>
+                    <button class="btn save" @click="saveStock" :disabled="!canSave">Save to Database</button>
                     <button class="btn reset" @click="resetForm">🔄 Reset</button>
                 </div>
             </div>
@@ -87,7 +100,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import axios from "../plugins/axios.js";
 import Sidebar from "../components/Sidebar.vue";
 import ModernHeader from "../components/header.vue";
@@ -102,6 +115,12 @@ const sizes = ref([]);
 const colors = ref([]);
 const stockItems = ref([createEmptyItem()]);
 
+// Draft Management
+const draftTimestamp = ref(null);
+const DRAFT_KEY = 'stock_form_draft';
+const AUTO_SAVE_DELAY = 2000; // 2 seconds
+let autoSaveTimeout = null;
+
 // Computed
 const totalQuantity = computed(() =>
     stockItems.value.reduce((sum, i) => sum + (parseInt(i.quantity) || 0), 0)
@@ -115,6 +134,16 @@ const canSave = computed(() => {
         );
 });
 
+const hasFormData = computed(() => {
+    return selectedSupplier.value || stockItems.value.some(item =>
+        item.productId || item.sizeId || item.colorId || item.quantity > 1
+    );
+});
+
+const hasDraft = computed(() => {
+    return localStorage.getItem(DRAFT_KEY) !== null;
+});
+
 // Create empty item
 function createEmptyItem() {
     return {
@@ -125,6 +154,82 @@ function createEmptyItem() {
     };
 }
 
+// Draft Management Functions
+const saveDraft = () => {
+    const draftData = {
+        selectedSupplier: selectedSupplier.value,
+        stockItems: stockItems.value,
+        timestamp: new Date().toISOString()
+    };
+
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
+    draftTimestamp.value = draftData.timestamp;
+
+    console.log('Draft saved successfully');
+};
+
+const loadDraft = () => {
+    try {
+        const draftData = JSON.parse(localStorage.getItem(DRAFT_KEY));
+        if (draftData) {
+            selectedSupplier.value = draftData.selectedSupplier || "";
+            stockItems.value = draftData.stockItems || [createEmptyItem()];
+            draftTimestamp.value = draftData.timestamp;
+
+            // Ensure we have at least one row
+            if (stockItems.value.length === 0) {
+                stockItems.value = [createEmptyItem()];
+            }
+
+            alert('Draft loaded successfully!');
+        }
+    } catch (error) {
+        console.error('Error loading draft:', error);
+        alert('Error loading draft. The draft data might be corrupted.');
+    }
+};
+
+const discardDraft = () => {
+    if (confirm('Are you sure you want to discard the saved draft? This action cannot be undone.')) {
+        localStorage.removeItem(DRAFT_KEY);
+        draftTimestamp.value = null;
+        alert('Draft discarded successfully!');
+    }
+};
+
+const autoSaveDraft = () => {
+    // Clear existing timeout
+    if (autoSaveTimeout) {
+        clearTimeout(autoSaveTimeout);
+    }
+
+    // Set new timeout for auto-save
+    autoSaveTimeout = setTimeout(() => {
+        if (hasFormData.value) {
+            saveDraft();
+        }
+    }, AUTO_SAVE_DELAY);
+};
+
+const manualSaveDraft = () => {
+    if (hasFormData.value) {
+        saveDraft();
+        alert('Draft saved successfully!');
+    } else {
+        alert('No form data to save as draft.');
+    }
+};
+
+const clearDraft = () => {
+    localStorage.removeItem(DRAFT_KEY);
+    draftTimestamp.value = null;
+};
+
+
+watch([selectedSupplier, stockItems], () => {
+    autoSaveDraft();
+}, { deep: true });
+
 // API Calls
 onMounted(async () => {
     await Promise.all([
@@ -133,7 +238,24 @@ onMounted(async () => {
         loadSizes(),
         loadColors()
     ]);
+
+    // Check for existing draft on component mount
+    checkForDraft();
 });
+
+const checkForDraft = () => {
+    if (hasDraft.value) {
+        try {
+            const draftData = JSON.parse(localStorage.getItem(DRAFT_KEY));
+            draftTimestamp.value = draftData.timestamp;
+
+        } catch (error) {
+            console.error('Error checking draft:', error);
+            // If draft is corrupted, remove it
+            localStorage.removeItem(DRAFT_KEY);
+        }
+    }
+};
 
 const loadSuppliers = async () => {
     try {
@@ -188,8 +310,13 @@ const removeItem = (idx) => {
 
 // Product change handler
 const onProductChange = (idx) => {
-
     console.log(`Product changed for row ${idx + 1}`);
+};
+
+// Format date for display
+const formatDate = (dateString) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleString();
 };
 
 // Save Stock
@@ -212,6 +339,10 @@ const saveStock = async () => {
         );
 
         await Promise.all(promises);
+
+        // Clear draft after successful save
+        clearDraft();
+
         alert("Stock added successfully!");
         resetForm();
     } catch (err) {
@@ -222,8 +353,11 @@ const saveStock = async () => {
 
 // Reset form
 const resetForm = () => {
-    selectedSupplier.value = "";
-    stockItems.value = [createEmptyItem()];
+    if (confirm('Are you sure you want to reset the form? Any unsaved changes will be lost.')) {
+        selectedSupplier.value = "";
+        stockItems.value = [createEmptyItem()];
+
+    }
 };
 </script>
 
@@ -252,6 +386,52 @@ const resetForm = () => {
     font-weight: 700;
     margin-bottom: 20px;
     color: #333;
+}
+
+/* Draft Banner */
+.draft-banner {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+}
+
+.draft-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.draft-info span {
+    color: #856404;
+    font-weight: 500;
+}
+
+.draft-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn.draft-load {
+    background: #17a2b8;
+    color: white;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+}
+
+.btn.draft-discard {
+    background: #6c757d;
+    color: white;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+}
+
+.btn.draft {
+    background: #17a2b8;
+    color: white;
 }
 
 .form-row {
@@ -384,6 +564,7 @@ const resetForm = () => {
     margin-top: 25px;
     display: flex;
     gap: 12px;
+    flex-wrap: wrap;
 }
 
 .btn {
@@ -423,5 +604,27 @@ const resetForm = () => {
     padding: 6px 8px;
     border-radius: 3px;
     font-size: 0.8rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+        text-align: center;
+    }
+
+    .draft-info {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .draft-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
 }
 </style>

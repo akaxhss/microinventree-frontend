@@ -176,6 +176,7 @@
   </div>
 </template>
 
+
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import * as XLSX from "xlsx";
@@ -194,6 +195,14 @@ const expandedSlip = ref(null);
 const hasSearched = ref(false);
 
 const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL"];
+
+// Distributor details
+const distributorInfo = {
+  name: "AS Distributors",
+  address: "Allpy3rd Floor, Golden Tower, M.c Road, Vezhakkattuchira, Changanassery-",
+  contact: "Phone: 0481 2425578 | Email: asdistributors2008@yahoo.com",
+  gst: "32AAPFA6202PIZB"
+};
 
 // Computed properties
 const totalItems = computed(() => {
@@ -217,7 +226,6 @@ const fetchPackingSlips = async () => {
     hasSearched.value = true;
 
     if (selectedCustomerId.value || singleDate.value || (startDate.value && endDate.value)) {
-      // Use filtered API when filters are applied
       const params = {};
 
       if (selectedCustomerId.value) {
@@ -234,7 +242,6 @@ const fetchPackingSlips = async () => {
       const res = await axios.get("/packingslipsfilter/", { params });
       packingSlips.value = res.data;
     } else {
-      // Use all packing slips API when no filters
       const res = await axios.get("/packingslips/");
       packingSlips.value = res.data;
     }
@@ -254,6 +261,7 @@ const resetFilters = () => {
   expandedSlip.value = null;
 };
 
+// FIXED: Added proper event handling for expand/collapse
 const toggleSlip = (id) => {
   expandedSlip.value = expandedSlip.value === id ? null : id;
 };
@@ -261,6 +269,11 @@ const toggleSlip = (id) => {
 const getCustomerName = (customerId) => {
   const customer = customers.value.find(c => c.id === customerId);
   return customer ? customer.name : `Customer #${customerId}`;
+};
+
+const getCustomerDetails = (customerId) => {
+  const customer = customers.value.find(c => c.id === customerId);
+  return customer ? customer : null;
 };
 
 const formatDate = (dateString) => {
@@ -311,19 +324,33 @@ const groupByProduct = (lines) => {
   return result;
 };
 
-// Export Functions
+
 const exportExcel = (data) => {
   const wb = XLSX.utils.book_new();
 
   data.forEach((slip) => {
     const wsData = [];
     const grouped = groupByProduct(slip.lines);
+    const customer = getCustomerDetails(slip.customer);
 
-    // Slip header
-    wsData.push(["Packing Slip Report"]);
+    // Slip header with distributor and customer details
+    wsData.push(["PACKING SLIP REPORT"]);
+    wsData.push([]);
+
+
+    wsData.push(["AS DISTRIBUTORS", "", "", "", "", "", "CUSTOMER DETAILS"]);
+    wsData.push([distributorInfo.name, "", "", "", "", "", `Name: ${customer ? customer.name : 'Unknown'}`]);
+    wsData.push([distributorInfo.address, "", "", "", "", "", `Contact: ${customer ? customer.contact : 'N/A'}`]);
+    wsData.push([distributorInfo.contact, "", "", "", "", "", `Place: ${customer ? customer.place : 'N/A'}`]);
+    wsData.push(["", "", "", "", "", "", `Address: ${customer ? customer.address : 'N/A'}`]);
+    wsData.push([`GST: ${distributorInfo.gst}`]);
+
+    wsData.push([]);
+
+    // Slip information
     wsData.push([`Slip Number: ${slip.slip_number}`]);
     wsData.push([`Date: ${formatDate(slip.date)}`]);
-    wsData.push([`Customer: ${getCustomerName(slip.customer)}`]);
+    wsData.push([`Created At: ${formatDateTime(slip.created_at)}`]);
     wsData.push([]);
 
     Object.keys(grouped).forEach((product) => {
@@ -354,8 +381,28 @@ const exportExcel = (data) => {
       wsData.push([]);
     });
 
+    // Overall summary
+    const totalQuantity = Object.values(grouped).reduce((sum, group) => sum + group.grandTotal, 0);
+    wsData.push(["SUMMARY"]);
+    wsData.push([`Total Products: ${Object.keys(grouped).length}`]);
+    wsData.push([`Total Items: ${totalQuantity}`]);
+
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    XLSX.utils.book_append_sheet(wb, ws, `Slip_${slip.slip_number}`);
+
+    // FIXED: Add column widths for better Excel layout
+    const colWidths = [
+      { wch: 20 }, // Color column
+      { wch: 8 },  // S
+      { wch: 8 },  // M
+      { wch: 8 },  // L
+      { wch: 8 },  // XL
+      { wch: 8 },  // XXL
+      { wch: 8 },  // XXXL
+      { wch: 12 }  // Total Qty
+    ];
+    ws['!cols'] = colWidths;
+
+    XLSX.utils.book_append_sheet(wb, ws, `Slip_${slip.slip_number.substring(0, 25)}`); // Limit sheet name length
   });
 
   XLSX.writeFile(wb, "PackingSlips_Report.xlsx");
@@ -367,16 +414,38 @@ const exportPDF = (data) => {
   data.forEach((slip, index) => {
     if (index > 0) doc.addPage();
 
-    // Header
-    doc.setFontSize(16);
-    doc.text("Packing Slip Report", 105, 20, { align: "center" });
-    doc.setFontSize(10);
-    doc.text(`Slip #: ${slip.slip_number}`, 14, 35);
-    doc.text(`Date: ${formatDate(slip.date)}`, 14, 42);
-    doc.text(`Customer: ${getCustomerName(slip.customer)}`, 14, 49);
-
+    const customer = getCustomerDetails(slip.customer);
     const grouped = groupByProduct(slip.lines);
-    let y = 60;
+
+    // Header with distributor and customer details
+    doc.setFontSize(16);
+    doc.text("PACKING SLIP REPORT", 105, 20, { align: "center" });
+
+    // Distributor details (left side)
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text("AS DISTRIBUTORS", 14, 35);
+    doc.setFont(undefined, 'normal');
+    doc.text(distributorInfo.name, 14, 42);
+    doc.text(distributorInfo.address, 14, 49);
+    doc.text(distributorInfo.contact, 14, 56);
+    doc.text(distributorInfo.gst, 14, 60);
+
+    // Customer details (right side)
+    doc.setFont(undefined, 'bold');
+    doc.text("CUSTOMER DETAILS", 140, 35);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Name: ${customer ? customer.name : 'Unknown'}`, 140, 42);
+    doc.text(`Contact: ${customer ? customer.contact : 'N/A'}`, 140, 49);
+    doc.text(`Place: ${customer ? customer.place : 'N/A'}`, 140, 56);
+    doc.text(`Address: ${customer ? customer.address : 'N/A'}`, 140, 63);
+
+    // Slip information
+    doc.text(`Slip #: ${slip.slip_number}`, 14, 75);
+    doc.text(`Date: ${formatDate(slip.date)}`, 14, 82);
+    doc.text(`Created: ${formatDateTime(slip.created_at)}`, 14, 89);
+
+    let y = 100;
 
     Object.keys(grouped).forEach((product) => {
       const group = grouped[product];
@@ -410,6 +479,11 @@ const exportPDF = (data) => {
 
       y = doc.lastAutoTable.finalY + 15;
     });
+
+    // Add summary
+    const totalQuantity = Object.values(grouped).reduce((sum, group) => sum + group.grandTotal, 0);
+    doc.text(`Total Products: ${Object.keys(grouped).length}`, 14, y);
+    doc.text(`Total Items: ${totalQuantity}`, 14, y + 7);
   });
 
   doc.save("PackingSlips_Report.pdf");
@@ -422,6 +496,7 @@ onMounted(() => {
   loadCustomers();
 });
 </script>
+
 
 <style scoped>
 .reports-container {

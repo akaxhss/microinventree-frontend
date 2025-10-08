@@ -13,6 +13,7 @@ import Home from '../pages/Home.vue'
 import AddStock from '../pages/AddStock.vue'
 import PackingSlip from '../pages/PackingSlip.vue'
 import Suppliers from '../pages/SuppliersPage.vue'
+import Database from '../pages/Database.vue'
 
 const routes = [
   { path: '/login', component: LoginPage },
@@ -29,6 +30,7 @@ const routes = [
   { path: '/addstock', component: AddStock },
   { path: '/packingslip', component: PackingSlip },
   { path: '/suppliers', component: Suppliers },
+  { path: '/databasebackup', component: Database },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })

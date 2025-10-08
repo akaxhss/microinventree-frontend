@@ -10,11 +10,22 @@
             <div class="form-container">
                 <h2 class="page-title">📦 Create Packing Slip</h2>
 
+                <!-- Draft Management -->
+                <div class="draft-banner" v-if="hasDraft">
+                    <div class="draft-info">
+                        <span>📋 Draft found from {{ formatDate(draftTimestamp) }}</span>
+                        <div class="draft-actions">
+                            <button class="btn draft-load" @click="loadDraft">🔄 Load Draft</button>
+                            <button class="btn draft-discard" @click="discardDraft">🗑️ Discard</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Customer Selection -->
                 <div class="form-row">
                     <div class="form-group">
                         <label>Customer</label>
-                        <select v-model="selectedCustomer">
+                        <select v-model="selectedCustomer" @change="autoSaveDraft">
                             <option value="">-- Select Customer --</option>
                             <option v-for="c in customers" :key="c.id" :value="c.id">{{ c.name }}</option>
                         </select>
@@ -86,9 +97,14 @@
                     </table>
                 </div>
 
-                <!-- Save/Reset Buttons -->
+                <!-- Save/Export Buttons -->
                 <div class="form-actions">
-                    <button class="btn save" @click="savePackingSlip" :disabled="!canSave">💾 Save Packing Slip</button>
+                    <button class="btn draft" @click="manualSaveDraft" :disabled="!hasFormData">💾 Save Draft</button>
+                    <button class="btn save" @click="savePackingSlip" :disabled="!canSave">Save Packing Slip</button>
+                    <button class="btn excel" @click="saveAndExportExcel" :disabled="!canSave">📊 Save & Download
+                        Excel</button>
+                    <button class="btn pdf" @click="saveAndExportPDF" :disabled="!canSave">📄 Save & Download
+                        PDF</button>
                     <button class="btn reset" @click="resetForm">🔄 Reset</button>
                 </div>
             </div>
@@ -97,7 +113,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import axios from "../plugins/axios.js";
 import Sidebar from "../components/Sidebar.vue";
 import ModernHeader from "../components/header.vue";
@@ -109,6 +128,12 @@ const selectedCustomer = ref("");
 const customers = ref([]);
 const products = ref([]);
 const packingItems = ref([createEmptyItem()]);
+
+// Draft Management
+const draftTimestamp = ref(null);
+const DRAFT_KEY = 'packing_slip_draft';
+const AUTO_SAVE_DELAY = 2000; // 2 seconds
+let autoSaveTimeout = null;
 
 // Computed
 const totalQuantity = computed(() =>
@@ -123,6 +148,16 @@ const canSave = computed(() => {
         );
 });
 
+const hasFormData = computed(() => {
+    return selectedCustomer.value || packingItems.value.some(item =>
+        item.productId || item.colorId || item.sizeId || item.quantity > 1
+    );
+});
+
+const hasDraft = computed(() => {
+    return localStorage.getItem(DRAFT_KEY) !== null;
+});
+
 // Create empty item
 function createEmptyItem() {
     return {
@@ -133,9 +168,172 @@ function createEmptyItem() {
         maxQuantity: 0,
         availableColors: [],
         availableSizes: [],
-        stockData: []
+        stockData: [],
+        colorStockData: []
     };
 }
+
+// Draft Management Functions
+const saveDraft = () => {
+    const draftData = {
+        selectedCustomer: selectedCustomer.value,
+        packingItems: packingItems.value.map(item => ({
+
+            productId: item.productId,
+            colorId: item.colorId,
+            sizeId: item.sizeId,
+            quantity: item.quantity,
+            maxQuantity: item.maxQuantity
+        })),
+        timestamp: new Date().toISOString()
+    };
+
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
+    draftTimestamp.value = draftData.timestamp;
+
+    console.log('Packing slip draft saved successfully');
+};
+
+const loadDraft = async () => {
+    try {
+        const draftData = JSON.parse(localStorage.getItem(DRAFT_KEY));
+        if (draftData) {
+            selectedCustomer.value = draftData.selectedCustomer || "";
+
+            // Restore basic item data
+            packingItems.value = draftData.packingItems.map(itemData => ({
+                ...createEmptyItem(),
+                ...itemData
+            })) || [createEmptyItem()];
+
+            draftTimestamp.value = draftData.timestamp;
+
+            // Ensure we have at least one row
+            if (packingItems.value.length === 0) {
+                packingItems.value = [createEmptyItem()];
+            }
+
+            // Reload dynamic data for each item (colors, sizes, etc.)
+            for (let idx = 0; idx < packingItems.value.length; idx++) {
+                const item = packingItems.value[idx];
+                if (item.productId) {
+                    await reloadProductData(idx);
+                }
+            }
+
+            alert('Draft loaded successfully!');
+        }
+    } catch (error) {
+        console.error('Error loading draft:', error);
+        alert('Error loading draft. The draft data might be corrupted.');
+    }
+};
+
+const reloadProductData = async (idx) => {
+    const item = packingItems.value[idx];
+    if (!item.productId) return;
+
+    try {
+        // Reload product data
+        const res = await axios.get(`/available-stock/?product_id=${item.productId}`);
+        item.stockData = res.data;
+
+        // Extract unique colors 
+        const colorMap = new Map();
+        item.stockData.forEach(stock => {
+            if (colorMap.has(stock.color_id)) {
+                colorMap.get(stock.color_id).total_quantity += stock.available_quantity;
+            } else {
+                colorMap.set(stock.color_id, {
+                    color_id: stock.color_id,
+                    color_name: stock.color_name,
+                    total_quantity: stock.available_quantity
+                });
+            }
+        });
+
+        item.availableColors = Array.from(colorMap.values());
+
+        // If color was previously selected, reload sizes
+        if (item.colorId) {
+            const allSizesMap = new Map();
+            item.stockData.forEach(stock => {
+                if (!allSizesMap.has(stock.size_id)) {
+                    allSizesMap.set(stock.size_id, {
+                        size_id: stock.size_id,
+                        size_code: stock.size_code,
+                        available_quantity: 0
+                    });
+                }
+            });
+
+            const colorStockData = item.stockData.filter(stock =>
+                parseInt(stock.color_id) === parseInt(item.colorId)
+            );
+
+            const availableSizes = Array.from(allSizesMap.values()).map(size => {
+                const colorStock = colorStockData.find(stock =>
+                    parseInt(stock.size_id) === parseInt(size.size_id)
+                );
+                return {
+                    ...size,
+                    available_quantity: colorStock ? colorStock.available_quantity : 0
+                };
+            });
+
+            item.availableSizes = availableSizes;
+            item.colorStockData = colorStockData;
+
+            // Update max quantity if size was selected
+            if (item.sizeId) {
+                updateAvailableQuantity(idx);
+            }
+        }
+    } catch (error) {
+        console.error('Error reloading product data:', error);
+    }
+};
+
+const discardDraft = () => {
+    if (confirm('Are you sure you want to discard the saved draft? This action cannot be undone.')) {
+        localStorage.removeItem(DRAFT_KEY);
+        draftTimestamp.value = null;
+        alert('Draft discarded successfully!');
+    }
+};
+
+const autoSaveDraft = () => {
+    // Clear existing timeout
+    if (autoSaveTimeout) {
+        clearTimeout(autoSaveTimeout);
+    }
+
+    // Set new timeout for auto-save
+    autoSaveTimeout = setTimeout(() => {
+        if (hasFormData.value) {
+            saveDraft();
+        }
+    }, AUTO_SAVE_DELAY);
+};
+
+const manualSaveDraft = () => {
+    if (hasFormData.value) {
+        saveDraft();
+        alert('Draft saved successfully!');
+    } else {
+        alert('No form data to save as draft.');
+    }
+};
+
+const clearDraft = () => {
+    localStorage.removeItem(DRAFT_KEY);
+    draftTimestamp.value = null;
+};
+
+// Watch for changes to auto-save
+watch([selectedCustomer, packingItems], () => {
+    autoSaveDraft();
+}, { deep: true });
 
 // API Calls
 onMounted(async () => {
@@ -143,7 +341,23 @@ onMounted(async () => {
         loadCustomers(),
         loadProducts()
     ]);
+
+    // Check for existing draft on component mount
+    checkForDraft();
 });
+
+const checkForDraft = () => {
+    if (hasDraft.value) {
+        try {
+            const draftData = JSON.parse(localStorage.getItem(DRAFT_KEY));
+            draftTimestamp.value = draftData.timestamp;
+        } catch (error) {
+            console.error('Error checking draft:', error);
+            // If draft is corrupted, remove it
+            localStorage.removeItem(DRAFT_KEY);
+        }
+    }
+};
 
 const loadCustomers = async () => {
     try {
@@ -200,7 +414,6 @@ const onProductChange = async (idx) => {
 
         item.availableColors = Array.from(colorMap.values());
 
-
         item.colorId = "";
         item.sizeId = "";
         item.availableSizes = [];
@@ -214,7 +427,6 @@ const onProductChange = async (idx) => {
     }
 };
 
-
 const onColorChange = async (idx) => {
     const item = packingItems.value[idx];
     if (!item.productId || !item.colorId) {
@@ -225,10 +437,8 @@ const onColorChange = async (idx) => {
     }
 
     try {
-
         const res = await axios.get(`/available-stock/?product_id=${item.productId}`);
         const allStockData = res.data;
-
 
         const allSizesMap = new Map();
 
@@ -242,11 +452,9 @@ const onColorChange = async (idx) => {
             }
         });
 
-
         const colorStockData = allStockData.filter(stock =>
             parseInt(stock.color_id) === parseInt(item.colorId)
         );
-
 
         const availableSizes = Array.from(allSizesMap.values()).map(size => {
             const colorStock = colorStockData.find(stock =>
@@ -272,11 +480,9 @@ const onColorChange = async (idx) => {
     }
 };
 
-
 const updateAvailableQuantity = (idx) => {
     const item = packingItems.value[idx];
     if (item.sizeId && item.colorStockData && item.colorStockData.length > 0) {
-
         const matchingStock = item.colorStockData.find(stock =>
             parseInt(stock.size_id) === parseInt(item.sizeId)
         );
@@ -296,7 +502,6 @@ const updateAvailableQuantity = (idx) => {
     }
 };
 
-
 const validateQuantity = (idx) => {
     const item = packingItems.value[idx];
     if (item.quantity > item.maxQuantity) {
@@ -307,22 +512,170 @@ const validateQuantity = (idx) => {
     }
 };
 
-
 const addNewRow = () => {
     packingItems.value.push(createEmptyItem());
 };
-
 
 const removeItem = (idx) => {
     if (packingItems.value.length > 1) {
         packingItems.value.splice(idx, 1);
     } else {
-
         packingItems.value[0] = createEmptyItem();
     }
 };
 
-// Save Packing Slip
+// Format date for display
+const formatDate = (dateString) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleString();
+};
+
+// Helper functions for export
+const getCustomerName = () => {
+    const customer = customers.value.find(c => c.id == selectedCustomer.value);
+    return customer ? customer.name : `Customer #${selectedCustomer.value}`;
+};
+
+const groupByProduct = (lines) => {
+    const grouped = {};
+    const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL"];
+
+    lines.forEach((line) => {
+        const product = line.product_name;
+        const color = line.color_name;
+        const size = line.size_code;
+        const quantity = line.quantity;
+
+        if (!grouped[product]) grouped[product] = {};
+        if (!grouped[product][color]) {
+            grouped[product][color] = {
+                color,
+                sizes: {},
+                total: 0
+            };
+        }
+
+        grouped[product][color].sizes[size] =
+            (grouped[product][color].sizes[size] || 0) + quantity;
+        grouped[product][color].total += quantity;
+    });
+
+    const result = {};
+    Object.keys(grouped).forEach((product) => {
+        const rows = Object.values(grouped[product]);
+        const totals = {};
+        let grandTotal = 0;
+
+        sizeHeaders.forEach((size) => {
+            totals[size] = rows.reduce((acc, row) => acc + (row.sizes[size] || 0), 0);
+            grandTotal += totals[size];
+        });
+
+        result[product] = { rows, totals, grandTotal };
+    });
+
+    return result;
+};
+
+// Export Functions
+const exportExcel = (slipData) => {
+    const wb = XLSX.utils.book_new();
+    const wsData = [];
+    const grouped = groupByProduct(slipData.lines);
+    const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL"];
+
+    // Slip header
+    wsData.push(["Packing Slip Report"]);
+    wsData.push([`Slip Number: ${slipData.slip_number}`]);
+    wsData.push([`Date: ${formatDate(slipData.date)}`]);
+    wsData.push([`Customer: ${getCustomerName()}`]);
+    wsData.push([]);
+
+    Object.keys(grouped).forEach((product) => {
+        const group = grouped[product];
+
+        // Product heading
+        wsData.push([product]);
+
+        // Header row
+        wsData.push(["Color", ...sizeHeaders, "Total Qty"]);
+
+        // Data rows
+        group.rows.forEach((row) => {
+            wsData.push([
+                row.color,
+                ...sizeHeaders.map(size => row.sizes[size] || 0),
+                row.total
+            ]);
+        });
+
+        // Grand total row
+        wsData.push([
+            "Grand Total",
+            ...sizeHeaders.map(size => group.totals[size]),
+            group.grandTotal
+        ]);
+
+        wsData.push([]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(wb, ws, `Slip_${slipData.slip_number}`);
+    XLSX.writeFile(wb, `PackingSlip_${slipData.slip_number}.xlsx`);
+};
+
+const exportPDF = (slipData) => {
+    const doc = new jsPDF();
+    const grouped = groupByProduct(slipData.lines);
+    const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL"];
+
+    // Header
+    doc.setFontSize(16);
+    doc.text("Packing Slip Report", 105, 20, { align: "center" });
+    doc.setFontSize(10);
+    doc.text(`Slip #: ${slipData.slip_number}`, 14, 35);
+    doc.text(`Date: ${formatDate(slipData.date)}`, 14, 42);
+    doc.text(`Customer: ${getCustomerName()}`, 14, 49);
+
+    let y = 60;
+
+    Object.keys(grouped).forEach((product) => {
+        const group = grouped[product];
+
+        // Product title
+        doc.setFontSize(12);
+        doc.text(product, 14, y);
+        y += 8;
+
+        // Table data
+        const tableData = group.rows.map(row => [
+            row.color,
+            ...sizeHeaders.map(size => row.sizes[size] || 0),
+            row.total.toString()
+        ]);
+
+        // Add grand total row
+        tableData.push([
+            "Grand Total",
+            ...sizeHeaders.map(size => group.totals[size].toString()),
+            group.grandTotal.toString()
+        ]);
+
+        autoTable(doc, {
+            head: [["Color", ...sizeHeaders, "Total"]],
+            body: tableData,
+            startY: y,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [59, 130, 246] }
+        });
+
+        y = doc.lastAutoTable.finalY + 15;
+    });
+
+    doc.save(`PackingSlip_${slipData.slip_number}.pdf`);
+};
+
+// Main save and export functions
 const savePackingSlip = async () => {
     if (!canSave.value) {
         alert("Please fill all required fields and ensure quantities don't exceed available stock!");
@@ -330,25 +683,10 @@ const savePackingSlip = async () => {
     }
 
     try {
-        // Generate slip number
-        const slipNumber = `PSLIP${Date.now()}`;
-        const today = new Date().toISOString().split('T')[0];
+        const slipData = await createPackingSlip();
 
-        // Prepare lines array
-        const lines = packingItems.value.map(item => ({
-            product: item.productId,
-            color: item.colorId,
-            size: item.sizeId,
-            quantity: item.quantity
-        }));
-
-        // Single API call with all lines
-        await axios.post("/packingslips/", {
-            slip_number: slipNumber,
-            date: today,
-            customer: selectedCustomer.value,
-            lines: lines
-        });
+        // Clear draft after successful save
+        clearDraft();
 
         alert("Packing slip created successfully!");
         resetForm();
@@ -358,10 +696,97 @@ const savePackingSlip = async () => {
     }
 };
 
+const saveAndExportExcel = async () => {
+    if (!canSave.value) {
+        alert("Please fill all required fields and ensure quantities don't exceed available stock!");
+        return;
+    }
+
+    try {
+        const slipData = await createPackingSlip();
+
+        // Clear draft after successful save
+        clearDraft();
+
+        exportExcel(slipData);
+        alert("Packing slip created and Excel downloaded successfully!");
+        resetForm();
+    } catch (err) {
+        console.error("Error creating packing slip:", err);
+        alert("Error creating packing slip! Please check the console for details.");
+    }
+};
+
+const saveAndExportPDF = async () => {
+    if (!canSave.value) {
+        alert("Please fill all required fields and ensure quantities don't exceed available stock!");
+        return;
+    }
+
+    try {
+        const slipData = await createPackingSlip();
+
+        // Clear draft after successful save
+        clearDraft();
+
+        exportPDF(slipData);
+        alert("Packing slip created and PDF downloaded successfully!");
+        resetForm();
+    } catch (err) {
+        console.error("Error creating packing slip:", err);
+        alert("Error creating packing slip! Please check the console for details.");
+    }
+};
+
+// Common function to create packing slip
+const createPackingSlip = async () => {
+    // Generate slip number
+    const slipNumber = `PSLIP${Date.now()}`;
+    const today = new Date().toISOString().split('T')[0];
+
+    // Prepare lines array with names and codes
+    const lines = packingItems.value.map(item => {
+        const product = products.value.find(p => p.id == item.productId);
+        const color = item.availableColors.find(c => c.color_id == item.colorId);
+        const size = item.availableSizes.find(s => s.size_id == item.sizeId);
+
+        return {
+            product: item.productId,
+            product_name: product ? product.name : `Product ${item.productId}`,
+            color: item.colorId,
+            color_name: color ? color.color_name : `Color ${item.colorId}`,
+            size: item.sizeId,
+            size_code: size ? size.size_code : `Size ${item.sizeId}`,
+            quantity: item.quantity
+        };
+    });
+
+    // Single API call with all lines
+    const response = await axios.post("/packingslips/", {
+        slip_number: slipNumber,
+        date: today,
+        customer: selectedCustomer.value,
+        lines: lines.map(({ product, color, size, quantity }) => ({
+            product, color, size, quantity
+        }))
+    });
+
+    // Return the created slip data for export with names included
+    return {
+        slip_number: slipNumber,
+        date: today,
+        customer: selectedCustomer.value,
+        lines: lines
+    };
+};
+
 // Reset form
 const resetForm = () => {
-    selectedCustomer.value = "";
-    packingItems.value = [createEmptyItem()];
+    if (confirm('Are you sure you want to reset the form? Any unsaved changes will be lost.')) {
+        selectedCustomer.value = "";
+        packingItems.value = [createEmptyItem()];
+        // Don't clear draft on reset, let user decide
+    }
 };
 </script>
 
@@ -390,6 +815,52 @@ const resetForm = () => {
     font-weight: 700;
     margin-bottom: 20px;
     color: #333;
+}
+
+/* Draft Banner */
+.draft-banner {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+}
+
+.draft-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.draft-info span {
+    color: #856404;
+    font-weight: 500;
+}
+
+.draft-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn.draft-load {
+    background: #17a2b8;
+    color: white;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+}
+
+.btn.draft-discard {
+    background: #6c757d;
+    color: white;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+}
+
+.btn.draft {
+    background: #17a2b8;
+    color: white;
 }
 
 .form-row {
@@ -532,6 +1003,7 @@ const resetForm = () => {
     margin-top: 25px;
     display: flex;
     gap: 12px;
+    flex-wrap: wrap;
 }
 
 .btn {
@@ -560,6 +1032,16 @@ const resetForm = () => {
     color: #fff;
 }
 
+.btn.excel {
+    background: #059669;
+    color: #fff;
+}
+
+.btn.pdf {
+    background: #dc2626;
+    color: #fff;
+}
+
 .btn.reset {
     background: #757575;
     color: #fff;
@@ -571,5 +1053,27 @@ const resetForm = () => {
     padding: 6px 8px;
     border-radius: 3px;
     font-size: 0.8rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+        text-align: center;
+    }
+
+    .draft-info {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .draft-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
 }
 </style>

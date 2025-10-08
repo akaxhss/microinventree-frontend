@@ -55,6 +55,16 @@
             <router-link to="/sizes" class="menu-item" active-class="active">
                 📏 Sizes
             </router-link>
+
+            <div class="menu-section">Admin</div>
+
+            <router-link to="/databasebackup" class="menu-item" active-class="active">
+                💾 Data Base Backup
+            </router-link>
+
+            <!-- <router-link to="/sizes" class="menu-item" active-class="active">
+                📏 Sizes
+            </router-link> -->
         </nav>
     </aside>
 </template>
