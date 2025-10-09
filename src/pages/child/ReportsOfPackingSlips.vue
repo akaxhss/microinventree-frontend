@@ -562,10 +562,7 @@ const exportPDF = (data) => {
 
     let currentY = boxY + 17;
 
-    // Distributor name
-    const distributorLines = doc.splitTextToSize(distributorInfo.name, 75);
-    doc.text(distributorLines, 25, currentY);
-    currentY += 8;
+
 
     // Distributor address
     const addressLines = doc.splitTextToSize(distributorInfo.address, 75);
