@@ -10,13 +10,23 @@
             <div class="form-container">
                 <h2 class="page-title">📦 Create Packing Slip</h2>
 
+                <!-- Loading Overlay -->
+                <div v-if="loading" class="loading-overlay">
+                    <div class="loading-content">
+                        <div class="loading-spinner"></div>
+                        <p>Saving Packing Slip...</p>
+                        <p class="loading-subtext">Please wait while we process your request</p>
+                    </div>
+                </div>
+
                 <!-- Draft Management -->
                 <div class="draft-banner" v-if="hasDraft">
                     <div class="draft-info">
                         <span>📋 Draft found from {{ formatDate(draftTimestamp) }}</span>
                         <div class="draft-actions">
-                            <button class="btn draft-load" @click="loadDraft">🔄 Load Draft</button>
-                            <button class="btn draft-discard" @click="discardDraft">🗑️ Discard</button>
+                            <button class="btn draft-load" @click="loadDraft" :disabled="loading">🔄 Load Draft</button>
+                            <button class="btn draft-discard" @click="discardDraft" :disabled="loading">🗑️
+                                Discard</button>
                         </div>
                     </div>
                 </div>
@@ -25,7 +35,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Customer</label>
-                        <select v-model="selectedCustomer" @change="autoSaveDraft">
+                        <select v-model="selectedCustomer" @change="autoSaveDraft" :disabled="loading">
                             <option value="">-- Select Customer --</option>
                             <option v-for="c in customers" :key="c.id" :value="c.id">{{ c.name }}</option>
                         </select>
@@ -50,13 +60,13 @@
                             <tr v-for="(item, idx) in packingItems" :key="idx">
                                 <td class="index-col">{{ idx + 1 }}</td>
                                 <td>
-                                    <select v-model="item.productId" @change="onProductChange(idx)">
+                                    <select v-model="item.productId" @change="onProductChange(idx)" :disabled="loading">
                                         <option value="">-- Select Product --</option>
                                         <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
                                     </select>
                                 </td>
                                 <td>
-                                    <select v-model="item.colorId" @change="onColorChange(idx)">
+                                    <select v-model="item.colorId" @change="onColorChange(idx)" :disabled="loading">
                                         <option value="">-- Select Color --</option>
                                         <option v-for="color in item.availableColors" :key="color.color_id"
                                             :value="color.color_id" :disabled="color.total_quantity === 0">
@@ -65,7 +75,8 @@
                                     </select>
                                 </td>
                                 <td>
-                                    <select v-model="item.sizeId" @change="updateAvailableQuantity(idx)">
+                                    <select v-model="item.sizeId" @change="updateAvailableQuantity(idx)"
+                                        :disabled="loading">
                                         <option value="">-- Select Size --</option>
                                         <option v-for="size in item.availableSizes" :key="size.size_id"
                                             :value="size.size_id" :disabled="size.available_quantity === 0">
@@ -75,18 +86,19 @@
                                 </td>
                                 <td class="quantity-col">
                                     <input type="number" v-model="item.quantity" min="1" :max="item.maxQuantity"
-                                        class="quantity-input" @input="validateQuantity(idx)" />
+                                        class="quantity-input" @input="validateQuantity(idx)" :disabled="loading" />
                                 </td>
                                 <td class="available-col">
                                     <span class="available-qty">{{ item.maxQuantity }}</span>
                                 </td>
                                 <td class="action-col">
-                                    <button class="btn danger" @click="removeItem(idx)">❌</button>
+                                    <button class="btn danger" @click="removeItem(idx)" :disabled="loading">❌</button>
                                 </td>
                             </tr>
                             <tr>
                                 <td colspan="7" class="add-row">
-                                    <button class="btn add-row-btn" @click="addNewRow">➕ Add New Row</button>
+                                    <button class="btn add-row-btn" @click="addNewRow" :disabled="loading">➕ Add New
+                                        Row</button>
                                 </td>
                             </tr>
                             <tr class="total-row">
@@ -99,13 +111,21 @@
 
                 <!-- Save/Export Buttons -->
                 <div class="form-actions">
-                    <button class="btn draft" @click="manualSaveDraft" :disabled="!hasFormData">💾 Save Draft</button>
-                    <button class="btn save" @click="savePackingSlip" :disabled="!canSave">Save Packing Slip</button>
-                    <button class="btn excel" @click="saveAndExportExcel" :disabled="!canSave">📊 Save & Download
-                        Excel</button>
-                    <button class="btn pdf" @click="saveAndExportPDF" :disabled="!canSave">📄 Save & Download
-                        PDF</button>
-                    <button class="btn reset" @click="resetForm">🔄 Reset</button>
+                    <button class="btn draft" @click="manualSaveDraft" :disabled="!hasFormData || loading">💾 Save
+                        Draft</button>
+                    <button class="btn save" @click="savePackingSlip" :disabled="!canSave || loading">
+                        <span v-if="loading">⏳ Saving...</span>
+                        <span v-else>Save Packing Slip</span>
+                    </button>
+                    <button class="btn excel" @click="saveAndExportExcel" :disabled="!canSave || loading">
+                        <span v-if="loading">⏳ Saving...</span>
+                        <span v-else>📊 Save & Download Excel</span>
+                    </button>
+                    <button class="btn pdf" @click="saveAndExportPDF" :disabled="!canSave || loading">
+                        <span v-if="loading">⏳ Saving...</span>
+                        <span v-else>📄 Save & Download PDF</span>
+                    </button>
+                    <button class="btn reset" @click="resetForm" :disabled="loading">🔄 Reset</button>
                 </div>
             </div>
         </div>
@@ -128,6 +148,9 @@ const selectedCustomer = ref("");
 const customers = ref([]);
 const products = ref([]);
 const packingItems = ref([createEmptyItem()]);
+
+// Loading state
+const loading = ref(false);
 
 // Draft Management
 const draftTimestamp = ref(null);
@@ -682,6 +705,7 @@ const savePackingSlip = async () => {
         return;
     }
 
+    loading.value = true;
     try {
         const slipData = await createPackingSlip();
 
@@ -693,6 +717,8 @@ const savePackingSlip = async () => {
     } catch (err) {
         console.error("Error creating packing slip:", err);
         alert("Error creating packing slip! Please check the console for details.");
+    } finally {
+        loading.value = false;
     }
 };
 
@@ -702,6 +728,7 @@ const saveAndExportExcel = async () => {
         return;
     }
 
+    loading.value = true;
     try {
         const slipData = await createPackingSlip();
 
@@ -714,6 +741,8 @@ const saveAndExportExcel = async () => {
     } catch (err) {
         console.error("Error creating packing slip:", err);
         alert("Error creating packing slip! Please check the console for details.");
+    } finally {
+        loading.value = false;
     }
 };
 
@@ -723,6 +752,7 @@ const saveAndExportPDF = async () => {
         return;
     }
 
+    loading.value = true;
     try {
         const slipData = await createPackingSlip();
 
@@ -735,6 +765,8 @@ const saveAndExportPDF = async () => {
     } catch (err) {
         console.error("Error creating packing slip:", err);
         alert("Error creating packing slip! Please check the console for details.");
+    } finally {
+        loading.value = false;
     }
 };
 
@@ -808,6 +840,7 @@ const resetForm = () => {
     padding: 25px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
 }
 
 .page-title {
@@ -815,6 +848,64 @@ const resetForm = () => {
     font-weight: 700;
     margin-bottom: 20px;
     color: #333;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    border-radius: 8px;
+}
+
+.loading-content {
+    text-align: center;
+    padding: 30px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e0e0e0;
+}
+
+.loading-spinner {
+    border: 4px solid #f3f4f6;
+    border-left: 4px solid #3b82f6;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-content p {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 8px 0;
+}
+
+.loading-subtext {
+    font-size: 0.9rem !important;
+    font-weight: normal !important;
+    color: #6b7280 !important;
+    margin: 0 !important;
 }
 
 /* Draft Banner */
@@ -1014,6 +1105,7 @@ const resetForm = () => {
     font-weight: 600;
     font-size: 0.9rem;
     transition: all 0.2s;
+    position: relative;
 }
 
 .btn:hover:not(:disabled) {

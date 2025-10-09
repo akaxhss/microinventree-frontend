@@ -3,7 +3,7 @@
         <!-- Brand with Logo -->
         <div class="brand">
             <div class="logo-container">
-                <img src="../assets/JPIN.png" alt="JPIN Logo" class="logo" />
+                <img src="../assets/JPINWHITE.png" alt="JPIN Logo" class="logo" />
             </div>
             <h2>Micro<span>InvenTree</span></h2>
         </div>
@@ -77,7 +77,7 @@
 .sidebar {
     width: 230px;
     height: 100vh;
-    background: #1e2b49;
+    background: #0f172a;
     color: #e5e7eb;
     display: flex;
     flex-direction: column;
@@ -107,7 +107,7 @@
     max-width: 80px;
     max-height: 80px;
     object-fit: contain;
-    border-radius: 8px;
+    border-radius: 0px;
 }
 
 .brand h2 {

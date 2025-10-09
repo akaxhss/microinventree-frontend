@@ -10,13 +10,23 @@
             <div class="form-container">
                 <h2 class="page-title">➕ Add Stock</h2>
 
+                <!-- Loading Overlay -->
+                <div v-if="loading" class="loading-overlay">
+                    <div class="loading-content">
+                        <div class="loading-spinner"></div>
+                        <p>Saving Stock...</p>
+                        <p class="loading-subtext">Please wait while we process your request</p>
+                    </div>
+                </div>
+
                 <!-- Draft Management -->
                 <div class="draft-banner" v-if="hasDraft">
                     <div class="draft-info">
                         <span>📋 Draft found from {{ formatDate(draftTimestamp) }}</span>
                         <div class="draft-actions">
-                            <button class="btn draft-load" @click="loadDraft">🔄 Load Draft</button>
-                            <button class="btn draft-discard" @click="discardDraft">🗑️ Discard</button>
+                            <button class="btn draft-load" @click="loadDraft" :disabled="loading">🔄 Load Draft</button>
+                            <button class="btn draft-discard" @click="discardDraft" :disabled="loading">🗑️
+                                Discard</button>
                         </div>
                     </div>
                 </div>
@@ -25,7 +35,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Supplier</label>
-                        <select v-model="selectedSupplier">
+                        <select v-model="selectedSupplier" :disabled="loading">
                             <option value="">-- Select Supplier --</option>
                             <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
                         </select>
@@ -49,35 +59,36 @@
                             <tr v-for="(item, idx) in stockItems" :key="idx">
                                 <td class="index-col">{{ idx + 1 }}</td>
                                 <td>
-                                    <select v-model="item.productId" @change="onProductChange(idx)">
+                                    <select v-model="item.productId" @change="onProductChange(idx)" :disabled="loading">
                                         <option value="">-- Select Product --</option>
                                         <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
                                     </select>
                                 </td>
                                 <td>
-                                    <select v-model="item.sizeId">
+                                    <select v-model="item.sizeId" :disabled="loading">
                                         <option value="">-- Select Size --</option>
                                         <option v-for="s in sizes" :key="s.id" :value="s.id">{{ s.display_name }}
                                         </option>
                                     </select>
                                 </td>
                                 <td>
-                                    <select v-model="item.colorId">
+                                    <select v-model="item.colorId" :disabled="loading">
                                         <option value="">-- Select Color --</option>
                                         <option v-for="c in colors" :key="c.id" :value="c.id">{{ c.name }}</option>
                                     </select>
                                 </td>
                                 <td class="quantity-col">
                                     <input type="number" v-model="item.quantity" min="1" class="quantity-input"
-                                        @input="autoSaveDraft" />
+                                        @input="autoSaveDraft" :disabled="loading" />
                                 </td>
                                 <td class="action-col">
-                                    <button class="btn danger" @click="removeItem(idx)">❌</button>
+                                    <button class="btn danger" @click="removeItem(idx)" :disabled="loading">❌</button>
                                 </td>
                             </tr>
                             <tr>
                                 <td colspan="6" class="add-row">
-                                    <button class="btn add-row-btn" @click="addNewRow">➕ Add New Row</button>
+                                    <button class="btn add-row-btn" @click="addNewRow" :disabled="loading">➕ Add New
+                                        Row</button>
                                 </td>
                             </tr>
                             <tr class="total-row">
@@ -90,9 +101,13 @@
 
                 <!-- Save/Reset Buttons -->
                 <div class="form-actions">
-                    <button class="btn draft" @click="manualSaveDraft" :disabled="!hasFormData">💾 Save Draft</button>
-                    <button class="btn save" @click="saveStock" :disabled="!canSave">Save to Database</button>
-                    <button class="btn reset" @click="resetForm">🔄 Reset</button>
+                    <button class="btn draft" @click="manualSaveDraft" :disabled="!hasFormData || loading">💾 Save
+                        Draft</button>
+                    <button class="btn save" @click="saveStock" :disabled="!canSave || loading">
+                        <span v-if="loading">⏳ Saving...</span>
+                        <span v-else>Save to Database</span>
+                    </button>
+                    <button class="btn reset" @click="resetForm" :disabled="loading">🔄 Reset</button>
                 </div>
             </div>
         </div>
@@ -114,6 +129,9 @@ const products = ref([]);
 const sizes = ref([]);
 const colors = ref([]);
 const stockItems = ref([createEmptyItem()]);
+
+// Loading state
+const loading = ref(false);
 
 // Draft Management
 const draftTimestamp = ref(null);
@@ -326,6 +344,7 @@ const saveStock = async () => {
         return;
     }
 
+    loading.value = true;
     try {
         // Send each item individually to the API
         const promises = stockItems.value.map(item =>
@@ -348,6 +367,8 @@ const saveStock = async () => {
     } catch (err) {
         console.error("Error saving stock:", err);
         alert("Error adding stock! Please check the console for details.");
+    } finally {
+        loading.value = false;
     }
 };
 
@@ -356,7 +377,6 @@ const resetForm = () => {
     if (confirm('Are you sure you want to reset the form? Any unsaved changes will be lost.')) {
         selectedSupplier.value = "";
         stockItems.value = [createEmptyItem()];
-
     }
 };
 </script>
@@ -379,6 +399,7 @@ const resetForm = () => {
     padding: 25px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
 }
 
 .page-title {
@@ -386,6 +407,64 @@ const resetForm = () => {
     font-weight: 700;
     margin-bottom: 20px;
     color: #333;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    border-radius: 8px;
+}
+
+.loading-content {
+    text-align: center;
+    padding: 30px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e0e0e0;
+}
+
+.loading-spinner {
+    border: 4px solid #f3f4f6;
+    border-left: 4px solid #3b82f6;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-content p {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 8px 0;
+}
+
+.loading-subtext {
+    font-size: 0.9rem !important;
+    font-weight: normal !important;
+    color: #6b7280 !important;
+    margin: 0 !important;
 }
 
 /* Draft Banner */
@@ -575,6 +654,7 @@ const resetForm = () => {
     font-weight: 600;
     font-size: 0.9rem;
     transition: all 0.2s;
+    position: relative;
 }
 
 .btn:hover:not(:disabled) {

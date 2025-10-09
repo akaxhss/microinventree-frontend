@@ -47,10 +47,12 @@
                     </div>
                   </td>
                   <td class="details-cell">
-                    <div v-if="log.details" class="details-list">
-                      <div v-for="(value, key) in getImportantDetails(log.details)" :key="key" class="detail-item">
-                        <span class="detail-key">{{ formatKey(key) }}:</span>
-                        <span class="detail-value">{{ formatValue(value) }}</span>
+                    <div v-if="log.details" class="details-container">
+                      <div class="details-list">
+                        <div v-for="(value, key) in getImportantDetails(log.details)" :key="key" class="detail-item">
+                          <span class="detail-key">{{ formatKey(key) }}:</span>
+                          <span class="detail-value">{{ formatValue(value) }}</span>
+                        </div>
                       </div>
                     </div>
                     <span v-else class="no-details">No details</span>
@@ -111,6 +113,7 @@ import axios from "../plugins/axios.js";
 
 import Sidebar from "../components/Sidebar.vue";
 import ModernHeader from "../components/header.vue";
+
 // Data
 const activityLogs = ref([]);
 const loading = ref(false);
@@ -189,12 +192,23 @@ const formatValue = (value) => {
   if (typeof value === 'boolean') {
     return value ? 'Yes' : 'No';
   }
+  if (Array.isArray(value)) {
+    return value.map(item => {
+      if (typeof item === 'object') {
+        return JSON.stringify(item);
+      }
+      return item;
+    }).join(', ');
+  }
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
   return value;
 };
 
 const getImportantDetails = (details) => {
   // Show only the most important details in the list view
-  const importantKeys = ['quantity_added', 'new_quantity', 'old_quantity', 'size', 'color', 'product', 'supplier'];
+  const importantKeys = ['quantity_added', 'new_quantity', 'old_quantity', 'size', 'color', 'product', 'supplier', 'line_items'];
   const filteredDetails = {};
 
   importantKeys.forEach(key => {
@@ -275,6 +289,8 @@ onMounted(() => {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.875rem;
+  table-layout: fixed;
+  /* Added to control column widths */
 }
 
 .logs-table th {
@@ -291,6 +307,8 @@ onMounted(() => {
   padding: 1rem 0.75rem;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: top;
+  word-wrap: break-word;
+  /* Ensure long words break */
 }
 
 .log-row:hover {
@@ -311,8 +329,10 @@ onMounted(() => {
 }
 
 .details-column {
-  width: 250px;
-  min-width: 200px;
+  width: 300px;
+  /* Fixed width for details column */
+  min-width: 250px;
+  max-width: 300px;
 }
 
 .timestamp-column {
@@ -397,32 +417,62 @@ onMounted(() => {
 .resource-name {
   color: #6b7280;
   font-size: 0.75rem;
+  word-break: break-word;
+  /* Break long resource names */
+}
+
+/* Details Container - Fixed constraints */
+.details-container {
+  max-height: 150px;
+  /* Maximum height before scrolling */
+  overflow-y: auto;
+  /* Vertical scroll for many items */
+  overflow-x: hidden;
+  /* No horizontal scroll */
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 8px;
+  background: #f8fafc;
 }
 
 .details-list {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.4rem;
 }
 
 .detail-item {
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.detail-item:last-child {
+  border-bottom: none;
 }
 
 .detail-key {
   font-weight: 500;
   color: #374151;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 80px;
 }
 
 .detail-value {
   color: #6b7280;
-  font-size: 0.75rem;
-  text-align: right;
-  white-space: nowrap;
+  font-size: 0.7rem;
+  text-align: left;
+  word-break: break-word;
+  /* Break long values */
+  flex: 1;
+  max-width: 180px;
+  /* Limit value width */
+  overflow: hidden;
 }
 
 .no-details {
@@ -442,6 +492,25 @@ onMounted(() => {
   font-family: monospace;
   font-size: 0.8rem;
   white-space: nowrap;
+}
+
+/* Custom scrollbar for details container */
+.details-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+.details-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 2px;
+}
+
+.details-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.details-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 /* Pagination Styles */
@@ -554,10 +623,37 @@ onMounted(() => {
     padding: 0.75rem 0.5rem;
   }
 
+  .details-column {
+    width: 250px;
+    min-width: 200px;
+    max-width: 250px;
+  }
+
+  .detail-value {
+    max-width: 140px;
+  }
+
   .pagination-container {
     flex-direction: column;
     gap: 1rem;
     text-align: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+    padding: 10px;
+  }
+
+  .details-column {
+    width: 200px;
+    min-width: 150px;
+    max-width: 200px;
+  }
+
+  .detail-value {
+    max-width: 100px;
   }
 }
 </style>

@@ -245,7 +245,7 @@ const distributorInfo = {
   name: "AS Distributors",
   address: "Allpy3rd Floor, Golden Tower, M.c Road, Vezhakkattuchira, Changanassery-",
   contact: "Phone: 0481 2425578 | Email: asdistributors2008@yahoo.com",
-  gst: "32AAPFA6202PIZB"
+  gst: "GST: 32AAPFA6202PIZB"
 };
 
 // Computed properties
@@ -535,35 +535,96 @@ const exportPDF = (data) => {
     const customer = getCustomerDetails(slip.customer);
     const grouped = groupByProduct(slip.lines);
 
-    // Header with distributor and customer details
+
     doc.setFontSize(16);
     doc.text("PACKING SLIP REPORT", 105, 20, { align: "center" });
 
-    // Distributor details (left side)
+
+    const boxY = 30;
+    const boxWidth = 180;
+    const boxHeight = 55;
+
+
+    doc.setDrawColor(0);
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, boxY, boxWidth, boxHeight, 'F');
+    doc.rect(14, boxY, boxWidth, boxHeight, 'S');
+
+
+    doc.setDrawColor(150, 150, 150);
+    doc.line(105, boxY + 5, 105, boxY + boxHeight - 5);
+
+    // Distributor details (left side of the box)
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'bold');
+    doc.text("AS DISTRIBUTORS", 25, boxY + 10);
+    doc.setFont(undefined, 'normal');
+
+    let currentY = boxY + 17;
+
+    // Distributor name
+    const distributorLines = doc.splitTextToSize(distributorInfo.name, 75);
+    doc.text(distributorLines, 25, currentY);
+    currentY += 8;
+
+    // Distributor address
+    const addressLines = doc.splitTextToSize(distributorInfo.address, 75);
+    doc.text(addressLines, 25, currentY);
+    currentY += 8;
+
+    // Split phone and email into separate lines
+    const phoneMatch = distributorInfo.contact.match(/Phone:\s*([^|]+)/);
+    const emailMatch = distributorInfo.contact.match(/Email:\s*(.+)/);
+
+    const phone = phoneMatch ? phoneMatch[1].trim() : '0481 2425578';
+    const email = emailMatch ? emailMatch[1].trim() : 'asdistributors2008@yahoo.com';
+
+    // Phone line
+    doc.text(`Phone: ${phone}`, 25, currentY);
+    currentY += 8;
+
+    // Email line
+    doc.text(`Email: ${email}`, 25, currentY);
+    currentY += 8;
+
+    // Distributor GST
+    doc.text(distributorInfo.gst, 25, currentY);
+
+    // Customer details (right side of the box)
+    doc.setFont(undefined, 'bold');
+    doc.text("CUSTOMER DETAILS", 115, boxY + 10);
+    doc.setFont(undefined, 'normal');
+
+    let customerY = boxY + 17;
+
+    // Customer name
+    const customerName = `Name: ${customer ? customer.name : 'Unknown'}`;
+    doc.text(customerName, 115, customerY);
+    customerY += 8;
+
+    // Customer contact
+    const customerContact = `Contact: ${customer ? customer.contact : 'N/A'}`;
+    doc.text(customerContact, 115, customerY);
+    customerY += 8;
+
+    // Customer place
+    const customerPlace = `Place: ${customer ? customer.place : 'N/A'}`;
+    doc.text(customerPlace, 115, customerY);
+    customerY += 8;
+
+    // Customer address
+    const customerAddress = `Address: ${customer ? customer.address : 'N/A'}`;
+    const addressTextLines = doc.splitTextToSize(customerAddress, 75);
+    doc.text(addressTextLines, 115, customerY);
+
+    // Slip information below the box
+    const slipInfoY = boxY + boxHeight + 15;
     doc.setFontSize(10);
-    doc.setFont(undefined, 'bold');
-    doc.text("AS DISTRIBUTORS", 14, 35);
-    doc.setFont(undefined, 'normal');
-    doc.text(distributorInfo.name, 14, 42);
-    doc.text(distributorInfo.address, 14, 49);
-    doc.text(distributorInfo.contact, 14, 56);
-    doc.text(distributorInfo.gst, 14, 60);
+    doc.text(`Slip #: ${slip.slip_number}`, 14, slipInfoY);
+    doc.text(`Date: ${formatDate(slip.date)}`, 14, slipInfoY + 7);
+    doc.text(`Created: ${formatDateTime(slip.created_at)}`, 14, slipInfoY + 14);
 
-    // Customer details (right side)
-    doc.setFont(undefined, 'bold');
-    doc.text("CUSTOMER DETAILS", 140, 35);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Name: ${customer ? customer.name : 'Unknown'}`, 140, 42);
-    doc.text(`Contact: ${customer ? customer.contact : 'N/A'}`, 140, 49);
-    doc.text(`Place: ${customer ? customer.place : 'N/A'}`, 140, 56);
-    doc.text(`Address: ${customer ? customer.address : 'N/A'}`, 140, 63);
-
-    // Slip information
-    doc.text(`Slip #: ${slip.slip_number}`, 14, 75);
-    doc.text(`Date: ${formatDate(slip.date)}`, 14, 82);
-    doc.text(`Created: ${formatDateTime(slip.created_at)}`, 14, 89);
-
-    let y = 100;
+    let y = slipInfoY + 30;
 
     Object.keys(grouped).forEach((product) => {
       const group = grouped[product];
