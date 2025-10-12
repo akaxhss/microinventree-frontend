@@ -62,6 +62,9 @@
                 <router-link to="/auditlogs" class="menu-item" active-class="active">
                     📋 Audit Logs
                 </router-link>
+                <router-link to="/packingslipeditable" class="menu-item" active-class="active">
+                    🧾 Packing Slip Edit
+                </router-link>
 
                 <!-- Add space after last item -->
                 <div class="bottom-space"></div>

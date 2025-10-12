@@ -35,10 +35,11 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Supplier</label>
-                        <select v-model="selectedSupplier" :disabled="loading">
-                            <option value="">-- Select Supplier --</option>
-                            <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
-                        </select>
+                        <el-select v-model="selectedSupplier" filterable placeholder="Select Supplier" class="w-full"
+                            :disabled="loading" clearable>
+                            <el-option v-for="s in sortedSuppliers" :key="s.id"
+                                :label="`${s.name} (${s.place || 'No place'})`" :value="s.id" />
+                        </el-select>
                     </div>
                 </div>
 
@@ -59,33 +60,35 @@
                             <tr v-for="(item, idx) in stockItems" :key="idx">
                                 <td class="index-col">{{ idx + 1 }}</td>
                                 <td>
-                                    <select v-model="item.productId" @change="onProductChange(idx)" :disabled="loading">
-                                        <option value="">-- Select Product --</option>
-                                        <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
-                                    </select>
+                                    <el-select v-model="item.productId" @change="onProductChange(idx)" filterable
+                                        placeholder="Select Product" class="w-full" :disabled="loading" clearable>
+                                        <el-option v-for="p in sortedProducts" :key="p.id" :label="p.name"
+                                            :value="p.id" />
+                                    </el-select>
                                 </td>
                                 <td>
-                                    <select v-model="item.sizeId" :disabled="loading">
-                                        <option value="">-- Select Size --</option>
-                                        <option v-for="s in sizes" :key="s.id" :value="s.id">{{ s.display_name }}
-                                        </option>
-                                    </select>
+                                    <el-select v-model="item.sizeId" filterable placeholder="Select Size" class="w-full"
+                                        :disabled="loading" clearable>
+                                        <el-option v-for="s in sortedSizes" :key="s.id" :label="s.display_name"
+                                            :value="s.id" />
+                                    </el-select>
                                 </td>
                                 <td>
-                                    <select v-model="item.colorId" :disabled="loading">
-                                        <option value="">-- Select Color --</option>
-                                        <option v-for="c in colors" :key="c.id" :value="c.id">{{ c.name }}</option>
-                                    </select>
+                                    <el-select v-model="item.colorId" @change="onColorChange(idx)" filterable
+                                        placeholder="Select Color" class="w-full" :disabled="loading" clearable>
+                                        <el-option v-for="c in sortedColors" :key="c.id" :label="c.name"
+                                            :value="c.id" />
+                                    </el-select>
                                 </td>
                                 <td class="quantity-col">
                                     <input type="number" v-model="item.quantity" min="1" class="quantity-input"
-                                        @input="autoSaveDraft" :disabled="loading" />
+                                        @input="validateQuantity(idx)" :disabled="loading" />
                                 </td>
                                 <td class="action-col">
                                     <button class="btn danger" @click="removeItem(idx)" :disabled="loading">❌</button>
                                 </td>
                             </tr>
-                            <tr>
+                            <tr v-if="!isLastRowComplete">
                                 <td colspan="6" class="add-row">
                                     <button class="btn add-row-btn" @click="addNewRow" :disabled="loading">➕ Add New
                                         Row</button>
@@ -115,10 +118,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch, nextTick } from "vue";
 import axios from "../plugins/axios.js";
 import Sidebar from "../components/Sidebar.vue";
 import ModernHeader from "../components/header.vue";
+
+// Element Plus components
+import { ElSelect, ElOption } from 'element-plus';
+import 'element-plus/dist/index.css';
 
 // Form State
 const selectedSupplier = ref("");
@@ -139,22 +146,67 @@ const DRAFT_KEY = 'stock_form_draft';
 const AUTO_SAVE_DELAY = 2000; // 2 seconds
 let autoSaveTimeout = null;
 
-// Computed
+// Computed properties for sorted data
+const sortedSuppliers = computed(() => {
+    return [...suppliers.value].sort((a, b) => a.name.localeCompare(b.name));
+});
+
+const sortedProducts = computed(() => {
+    return [...products.value].sort((a, b) => a.name.localeCompare(b.name));
+});
+
+const sortedSizes = computed(() => {
+    // Define custom size order for better sorting
+    const sizeOrder = { 'S': 1, 'M': 2, 'L': 3, 'XL': 4, 'XXL': 5, 'XXXL': 6 };
+    return [...sizes.value].sort((a, b) => {
+        const orderA = sizeOrder[a.display_name] || 999;
+        const orderB = sizeOrder[b.display_name] || 999;
+        return orderA - orderB;
+    });
+});
+
+const sortedColors = computed(() => {
+    return [...colors.value].sort((a, b) => a.name.localeCompare(b.name));
+});
+
 const totalQuantity = computed(() =>
     stockItems.value.reduce((sum, i) => sum + (parseInt(i.quantity) || 0), 0)
 );
 
+// Check if last row is complete (all fields filled)
+const isLastRowComplete = computed(() => {
+    const lastItem = stockItems.value[stockItems.value.length - 1];
+    return lastItem.productId && lastItem.sizeId && lastItem.colorId && lastItem.quantity > 0;
+});
+
 const canSave = computed(() => {
-    return selectedSupplier.value &&
-        stockItems.value.length > 0 &&
-        stockItems.value.every(item =>
-            item.productId && item.sizeId && item.colorId && item.quantity > 0
-        );
+    // Check if supplier is selected
+    if (!selectedSupplier.value) return false;
+
+    // Only consider rows that have actual data (not empty rows)
+    const validRows = stockItems.value.filter(item =>
+        item.productId && item.sizeId && item.colorId && item.quantity > 0
+    );
+
+    // Must have at least one valid row
+    if (validRows.length === 0) return false;
+
+    // Check if there are any incomplete rows that have started but not finished
+    const hasIncompleteRows = stockItems.value.some(item =>
+        // A row is incomplete if it has any field filled but not all required fields
+        (item.productId || item.sizeId || item.colorId || item.quantity > 0) &&
+        (!item.productId || !item.sizeId || !item.colorId || item.quantity === 0)
+    );
+
+    // If there are incomplete rows, disable save
+    if (hasIncompleteRows) return false;
+
+    return true;
 });
 
 const hasFormData = computed(() => {
     return selectedSupplier.value || stockItems.value.some(item =>
-        item.productId || item.sizeId || item.colorId || item.quantity > 1
+        item.productId && item.sizeId && item.colorId && item.quantity > 0
     );
 });
 
@@ -168,22 +220,32 @@ function createEmptyItem() {
         productId: "",
         sizeId: "",
         colorId: "",
-        quantity: 1
+        quantity: 0
     };
 }
 
 // Draft Management Functions
 const saveDraft = () => {
+    // Only save valid rows to draft
+    const validItems = stockItems.value.filter(item =>
+        item.productId && item.sizeId && item.colorId && item.quantity > 0
+    );
+
     const draftData = {
         selectedSupplier: selectedSupplier.value,
-        stockItems: stockItems.value,
+        stockItems: validItems.length > 0 ? validItems.map(item => ({
+            productId: item.productId,
+            sizeId: item.sizeId,
+            colorId: item.colorId,
+            quantity: item.quantity
+        })) : [],
         timestamp: new Date().toISOString()
     };
 
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
     draftTimestamp.value = draftData.timestamp;
 
-    console.log('Draft saved successfully');
+    console.log('Stock draft saved successfully');
 };
 
 const loadDraft = () => {
@@ -191,13 +253,18 @@ const loadDraft = () => {
         const draftData = JSON.parse(localStorage.getItem(DRAFT_KEY));
         if (draftData) {
             selectedSupplier.value = draftData.selectedSupplier || "";
-            stockItems.value = draftData.stockItems || [createEmptyItem()];
-            draftTimestamp.value = draftData.timestamp;
 
-            // Ensure we have at least one row
-            if (stockItems.value.length === 0) {
+            // Restore basic item data - ensure we have at least one row
+            if (draftData.stockItems && draftData.stockItems.length > 0) {
+                stockItems.value = draftData.stockItems.map(itemData => ({
+                    ...createEmptyItem(),
+                    ...itemData
+                }));
+            } else {
                 stockItems.value = [createEmptyItem()];
             }
+
+            draftTimestamp.value = draftData.timestamp;
 
             alert('Draft loaded successfully!');
         }
@@ -243,9 +310,15 @@ const clearDraft = () => {
     draftTimestamp.value = null;
 };
 
-
+// Watch for changes to auto-save - Only save when there's actual form data
 watch([selectedSupplier, stockItems], () => {
-    autoSaveDraft();
+    const hasRealData = selectedSupplier.value || stockItems.value.some(item =>
+        item.productId && item.sizeId && item.colorId && item.quantity > 0
+    );
+
+    if (hasRealData) {
+        autoSaveDraft();
+    }
 }, { deep: true });
 
 // API Calls
@@ -311,9 +384,54 @@ const loadColors = async () => {
     }
 };
 
+// Product change handler
+const onProductChange = (idx) => {
+    console.log(`Product changed for row ${idx + 1}`);
+
+    // Auto-add new row if this is the last row and product is selected
+    const currentItem = stockItems.value[idx];
+    if (idx === stockItems.value.length - 1 && currentItem.productId) {
+        // Wait a bit for the current selection to settle, then add new row
+        setTimeout(() => {
+            addNewRow();
+        }, 300);
+    }
+};
+
+// Color change handler with automatic row addition
+const onColorChange = (idx) => {
+    // If this is the last row and all fields are filled, add a new row
+    const currentItem = stockItems.value[idx];
+    if (idx === stockItems.value.length - 1 &&
+        currentItem.productId &&
+        currentItem.sizeId &&
+        currentItem.colorId &&
+        currentItem.quantity > 0) {
+
+        // Wait a bit for the current selection to settle, then add new row
+        setTimeout(() => {
+            addNewRow();
+        }, 300);
+    }
+};
+
 // Add new row
 const addNewRow = () => {
-    stockItems.value.push(createEmptyItem());
+    // Only add new row if the last row is not empty
+    const lastItem = stockItems.value[stockItems.value.length - 1];
+    if (lastItem.productId || lastItem.sizeId || lastItem.colorId || lastItem.quantity > 0) {
+        stockItems.value.push(createEmptyItem());
+
+        // Scroll to the new row
+        nextTick(() => {
+            const tableWrapper = document.querySelector('.table-wrapper');
+            if (tableWrapper) {
+                tableWrapper.scrollTop = tableWrapper.scrollHeight;
+            }
+        });
+    } else {
+        console.log('Not adding new row - last row is empty');
+    }
 };
 
 // Remove item
@@ -326,9 +444,12 @@ const removeItem = (idx) => {
     }
 };
 
-// Product change handler
-const onProductChange = (idx) => {
-    console.log(`Product changed for row ${idx + 1}`);
+// Validate quantity
+const validateQuantity = (idx) => {
+    const item = stockItems.value[idx];
+    if (item.quantity < 0) {
+        item.quantity = 0;
+    }
 };
 
 // Format date for display
@@ -337,7 +458,7 @@ const formatDate = (dateString) => {
     return new Date(dateString).toLocaleString();
 };
 
-// Save Stock
+// Save Stock - Only send valid rows
 const saveStock = async () => {
     if (!canSave.value) {
         alert("Please fill all required fields!");
@@ -346,8 +467,20 @@ const saveStock = async () => {
 
     loading.value = true;
     try {
-        // Send each item individually to the API
-        const promises = stockItems.value.map(item =>
+        // Filter only valid rows (with all fields filled and quantity > 0)
+        const validItems = stockItems.value.filter(item =>
+            item.productId && item.sizeId && item.colorId && item.quantity > 0
+        );
+
+        console.log('Saving valid items:', validItems);
+
+        if (validItems.length === 0) {
+            alert("No valid items to save!");
+            return;
+        }
+
+        // Send only valid items to the API
+        const promises = validItems.map(item =>
             axios.post("/addstock/", {
                 product_id: item.productId,
                 color_id: item.colorId,
@@ -362,7 +495,7 @@ const saveStock = async () => {
         // Clear draft after successful save
         clearDraft();
 
-        alert("Stock added successfully!");
+        alert(`Stock added successfully! ${validItems.length} item(s) saved.`);
         resetForm();
     } catch (err) {
         console.error("Error saving stock:", err);
@@ -380,7 +513,6 @@ const resetForm = () => {
     }
 };
 </script>
-
 <style scoped>
 .layout {
     display: flex;
@@ -536,13 +668,13 @@ const resetForm = () => {
     font-size: 0.85rem;
 }
 
-.form-group select,
-.form-group input {
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    background: #fff;
+.form-group :deep(.el-select) {
+    width: 100%;
+}
+
+.form-group :deep(.el-input__inner) {
+    height: 40px !important;
+    border-radius: 4px !important;
 }
 
 .table-wrapper {
@@ -550,6 +682,8 @@ const resetForm = () => {
     border: 1px solid #e0e0e0;
     border-radius: 4px;
     overflow: hidden;
+    max-height: 600px;
+    overflow-y: auto;
 }
 
 .stock-table {
@@ -588,12 +722,13 @@ const resetForm = () => {
     width: 70px;
 }
 
-.stock-table select {
+.stock-table :deep(.el-select) {
     width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 0.85rem;
+}
+
+.stock-table :deep(.el-input__inner) {
+    height: 36px !important;
+    border-radius: 4px !important;
 }
 
 .quantity-input {
@@ -686,6 +821,33 @@ const resetForm = () => {
     font-size: 0.8rem;
 }
 
+/* Element Plus custom styles */
+:deep(.el-select) {
+    --el-select-input-focus-border-color: #409eff;
+}
+
+:deep(.el-select .el-input__inner:focus) {
+    border-color: #409eff;
+}
+
+:deep(.el-select-dropdown) {
+    border-radius: 4px;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+:deep(.el-select-dropdown__item) {
+    padding: 8px 12px;
+}
+
+:deep(.el-select-dropdown__item.hover) {
+    background-color: #f5f7fa;
+}
+
+:deep(.el-select-dropdown__item.selected) {
+    background-color: #409eff;
+    color: white;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .form-actions {
@@ -705,6 +867,11 @@ const resetForm = () => {
     .draft-actions {
         width: 100%;
         justify-content: flex-start;
+    }
+
+    .main-content {
+        margin-left: 0;
+        padding: 10px;
     }
 }
 </style>

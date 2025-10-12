@@ -15,6 +15,7 @@ import PackingSlip from '../pages/PackingSlip.vue'
 import Suppliers from '../pages/SuppliersPage.vue'
 import Database from '../pages/Database.vue'
 import Auditlogs from '../pages/Auditlogs.vue'
+import PackingSlipeditable from '../pages/PackingSlipeditable.vue'
 
 const routes = [
   { path: '/login', component: LoginPage },
@@ -33,6 +34,7 @@ const routes = [
   { path: '/suppliers', component: Suppliers },
   { path: '/databasebackup', component: Database },
   { path: '/auditlogs', component: Auditlogs },
+  { path: '/packingslipeditable', component: PackingSlipeditable },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })

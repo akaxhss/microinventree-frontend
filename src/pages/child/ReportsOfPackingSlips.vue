@@ -97,6 +97,9 @@
             </div>
 
             <div class="slip-actions" @click.stop>
+              <button class="action-btn edit" @click="editSlip(slip.slip_number)" title="Edit Packing Slip">
+                ✏️ Edit
+              </button>
               <button class="action-btn excel" @click="exportSingleExcel(slip)" title="Export Excel">
                 📊
               </button>
@@ -214,10 +217,14 @@
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import axios from "../../plugins/axios.js";
+
+// Router
+const router = useRouter();
 
 // Data
 const customers = ref([]);
@@ -297,6 +304,18 @@ const handleCustomerChange = () => {
   currentPage.value = 1;
 };
 
+// Edit function - sends slip number as props
+const editSlip = (slipNumber) => {
+  if (slipNumber) {
+    router.push({
+      path: '/packingslipeditable',
+      query: {
+        slip_number: slipNumber
+      }
+    });
+  }
+};
+
 const fetchPackingSlips = async (page = 1) => {
   try {
     loading.value = true;
@@ -340,6 +359,7 @@ const goToPage = (page) => {
   if (page < 1 || page > totalPages.value || loading.value) return;
   fetchPackingSlips(page);
 };
+
 const handlePaginationResponse = (response) => {
   packingSlips.value = response.data.results;
   totalCount.value = response.data.count;
@@ -369,7 +389,6 @@ const resetPaginationData = () => {
   currentPage.value = 1;
   totalPages.value = 1;
 };
-
 
 const resetFilters = () => {
   selectedCustomerId.value = "";
@@ -673,8 +692,74 @@ onMounted(() => {
 });
 </script>
 
+<style scoped>
+/* Edit button in slip actions */
+.action-btn.edit {
+  background: #ffc107;
+  color: #333;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color 0.3s;
+  white-space: nowrap;
+}
+
+.action-btn.edit:hover {
+  background: #e0a800;
+}
+
+/* Update existing slip actions to accommodate edit button */
+.slip-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .slip-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+</style>
 
 <style scoped>
+.action-btn.edit {
+  background: #ffc107;
+  color: #333;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color 0.3s;
+  white-space: nowrap;
+}
+
+.action-btn.edit:hover {
+  background: #e0a800;
+}
+
+/* Update existing slip actions to accommodate edit button */
+.slip-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+
+@media (max-width: 768px) {
+  .slip-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+
 .pagination-container {
   display: flex;
   justify-content: space-between;
@@ -1038,11 +1123,6 @@ onMounted(() => {
   color: #6b7280;
 }
 
-.slip-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 
 .action-btn {
   background: none;
@@ -1201,10 +1281,6 @@ onMounted(() => {
 
   .slip-customer-info {
     text-align: left;
-  }
-
-  .slip-actions {
-    align-self: flex-end;
   }
 
   .export-buttons {

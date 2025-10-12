@@ -35,10 +35,11 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Customer</label>
-                        <select v-model="selectedCustomer" @change="autoSaveDraft" :disabled="loading">
-                            <option value="">-- Select Customer --</option>
-                            <option v-for="c in customers" :key="c.id" :value="c.id">{{ c.name }}</option>
-                        </select>
+                        <el-select v-model="selectedCustomer" @change="autoSaveDraft" filterable
+                            placeholder="Select Customer" class="w-full" :disabled="loading" clearable>
+                            <el-option v-for="c in sortedCustomers" :key="c.id"
+                                :label="`${c.name} (${c.place || 'No place'})`" :value="c.id" />
+                        </el-select>
                     </div>
                 </div>
 
@@ -60,29 +61,44 @@
                             <tr v-for="(item, idx) in packingItems" :key="idx">
                                 <td class="index-col">{{ idx + 1 }}</td>
                                 <td>
-                                    <select v-model="item.productId" @change="onProductChange(idx)" :disabled="loading">
-                                        <option value="">-- Select Product --</option>
-                                        <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
-                                    </select>
+                                    <el-select v-model="item.productId" @change="onProductChange(idx)" filterable
+                                        placeholder="Select Product" class="w-full" :disabled="loading" clearable>
+                                        <el-option v-for="p in sortedProducts" :key="p.id" :label="p.name"
+                                            :value="p.id" />
+                                    </el-select>
                                 </td>
                                 <td>
-                                    <select v-model="item.colorId" @change="onColorChange(idx)" :disabled="loading">
-                                        <option value="">-- Select Color --</option>
-                                        <option v-for="color in item.availableColors" :key="color.color_id"
-                                            :value="color.color_id" :disabled="color.total_quantity === 0">
-                                            {{ color.color_name }}
-                                        </option>
-                                    </select>
+                                    <el-select v-model="item.colorId" @change="onColorChange(idx)" filterable
+                                        placeholder="Select Color" class="w-full" :disabled="loading || !item.productId"
+                                        clearable>
+                                        <el-option v-for="color in getAvailableColors(idx)" :key="color.color_id"
+                                            :label="color.color_name" :value="color.color_id"
+                                            :disabled="color.total_quantity === 0">
+                                            <span :class="{ 'text-red-500': color.total_quantity === 0 }">
+                                                {{ color.color_name }}
+                                                <span v-if="color.total_quantity === 0" class="text-xs text-red-500">
+                                                    (Out of stock)
+                                                </span>
+                                            </span>
+                                        </el-option>
+                                    </el-select>
                                 </td>
                                 <td>
-                                    <select v-model="item.sizeId" @change="updateAvailableQuantity(idx)"
-                                        :disabled="loading">
-                                        <option value="">-- Select Size --</option>
-                                        <option v-for="size in item.availableSizes" :key="size.size_id"
+                                    <el-select v-model="item.sizeId" @change="onSizeChange(idx)" filterable
+                                        placeholder="Select Size" class="w-full" :disabled="loading || !item.colorId"
+                                        clearable>
+                                        <el-option v-for="size in getAvailableSizes(idx)" :key="size.size_id"
+                                            :label="`${size.size_code} (${size.available_quantity})`"
                                             :value="size.size_id" :disabled="size.available_quantity === 0">
-                                            {{ size.size_code }} ({{ size.available_quantity }})
-                                        </option>
-                                    </select>
+                                            <span :class="{ 'text-red-500': size.available_quantity === 0 }">
+                                                {{ size.size_code }}
+                                                <span class="text-xs"
+                                                    :class="size.available_quantity === 0 ? 'text-red-500' : 'text-green-600'">
+                                                    ({{ size.available_quantity }})
+                                                </span>
+                                            </span>
+                                        </el-option>
+                                    </el-select>
                                 </td>
                                 <td class="quantity-col">
                                     <input type="number" v-model="item.quantity" min="1" :max="item.maxQuantity"
@@ -133,13 +149,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch, nextTick } from "vue";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import axios from "../plugins/axios.js";
 import Sidebar from "../components/Sidebar.vue";
 import ModernHeader from "../components/header.vue";
+
+// Element Plus components
+import { ElSelect, ElOption } from 'element-plus';
+import 'element-plus/dist/index.css';
 
 // Form State
 const selectedCustomer = ref("");
@@ -158,22 +178,95 @@ const DRAFT_KEY = 'packing_slip_draft';
 const AUTO_SAVE_DELAY = 2000; // 2 seconds
 let autoSaveTimeout = null;
 
-// Computed
+// Computed properties for sorted data
+const sortedCustomers = computed(() => {
+    return [...customers.value].sort((a, b) => a.name.localeCompare(b.name));
+});
+
+const sortedProducts = computed(() => {
+    return [...products.value].sort((a, b) => a.name.localeCompare(b.name));
+});
+
+const sortedAvailableColors = (colors) => {
+    if (!colors) return [];
+    return [...colors].sort((a, b) => a.color_name.localeCompare(b.color_name));
+};
+
+const sortedAvailableSizes = (sizes) => {
+    if (!sizes) return [];
+    // Define custom size order for better sorting
+    const sizeOrder = { 'S': 1, 'M': 2, 'L': 3, 'XL': 4, 'XXL': 5, 'XXXL': 6 };
+    return [...sizes].sort((a, b) => {
+        const orderA = sizeOrder[a.size_code] || 999;
+        const orderB = sizeOrder[b.size_code] || 999;
+        return orderA - orderB;
+    });
+};
+
+// Get available colors for a specific row (allow multiple same colors but filter based on product)
+const getAvailableColors = (currentIndex) => {
+    const currentItem = packingItems.value[currentIndex];
+    if (!currentItem.productId || !currentItem.availableColors) {
+        return sortedAvailableColors(currentItem.availableColors || []);
+    }
+
+    return sortedAvailableColors(currentItem.availableColors || []);
+};
+
+// Get available sizes for a specific row (prevent duplicate sizes for same product-color combo)
+const getAvailableSizes = (currentIndex) => {
+    const currentItem = packingItems.value[currentIndex];
+    if (!currentItem.productId || !currentItem.colorId || !currentItem.availableSizes) {
+        return sortedAvailableSizes(currentItem.availableSizes || []);
+    }
+
+    // Get all sizes that are already selected for the same product and color in other rows
+    const selectedSizes = packingItems.value
+        .filter((item, index) =>
+            index !== currentIndex &&
+            item.productId === currentItem.productId &&
+            item.colorId === currentItem.colorId &&
+            item.sizeId
+        )
+        .map(item => item.sizeId);
+
+    // Filter out sizes that are already selected for the same product-color combination
+    return sortedAvailableSizes(currentItem.availableSizes || []).filter(size =>
+        !selectedSizes.includes(size.size_id)
+    );
+};
+
 const totalQuantity = computed(() =>
     packingItems.value.reduce((sum, i) => sum + (parseInt(i.quantity) || 0), 0)
 );
 
 const canSave = computed(() => {
-    return selectedCustomer.value &&
-        packingItems.value.length > 0 &&
-        packingItems.value.every(item =>
-            item.productId && item.colorId && item.sizeId && item.quantity > 0 && item.quantity <= item.maxQuantity
-        );
+    if (!selectedCustomer.value) return false;
+
+    // Only consider rows that have actual data (not empty rows)
+    const validRows = packingItems.value.filter(item =>
+        item.productId && item.colorId && item.sizeId && item.quantity > 0 && item.quantity <= item.maxQuantity
+    );
+
+    // Must have at least one valid row
+    if (validRows.length === 0) return false;
+
+    // Check if there are any incomplete rows that have started but not finished
+    const hasIncompleteRows = packingItems.value.some(item =>
+        // A row is incomplete if it has any field filled but not all required fields
+        (item.productId || item.colorId || item.sizeId || item.quantity > 1) &&
+        (!item.productId || !item.colorId || !item.sizeId || item.quantity === 0)
+    );
+
+    // If there are incomplete rows, disable save
+    if (hasIncompleteRows) return false;
+
+    return true;
 });
 
 const hasFormData = computed(() => {
     return selectedCustomer.value || packingItems.value.some(item =>
-        item.productId || item.colorId || item.sizeId || item.quantity > 1
+        item.productId && item.colorId && item.sizeId && item.quantity > 0
     );
 });
 
@@ -198,16 +291,20 @@ function createEmptyItem() {
 
 // Draft Management Functions
 const saveDraft = () => {
+    // Only save valid rows to draft
+    const validItems = packingItems.value.filter(item =>
+        item.productId && item.colorId && item.sizeId && item.quantity > 0
+    );
+
     const draftData = {
         selectedCustomer: selectedCustomer.value,
-        packingItems: packingItems.value.map(item => ({
-
+        packingItems: validItems.length > 0 ? validItems.map(item => ({
             productId: item.productId,
             colorId: item.colorId,
             sizeId: item.sizeId,
             quantity: item.quantity,
             maxQuantity: item.maxQuantity
-        })),
+        })) : [],
         timestamp: new Date().toISOString()
     };
 
@@ -223,18 +320,17 @@ const loadDraft = async () => {
         if (draftData) {
             selectedCustomer.value = draftData.selectedCustomer || "";
 
-            // Restore basic item data
-            packingItems.value = draftData.packingItems.map(itemData => ({
-                ...createEmptyItem(),
-                ...itemData
-            })) || [createEmptyItem()];
-
-            draftTimestamp.value = draftData.timestamp;
-
-            // Ensure we have at least one row
-            if (packingItems.value.length === 0) {
+            // Restore basic item data - ensure we have at least one row
+            if (draftData.packingItems && draftData.packingItems.length > 0) {
+                packingItems.value = draftData.packingItems.map(itemData => ({
+                    ...createEmptyItem(),
+                    ...itemData
+                }));
+            } else {
                 packingItems.value = [createEmptyItem()];
             }
+
+            draftTimestamp.value = draftData.timestamp;
 
             // Reload dynamic data for each item (colors, sizes, etc.)
             for (let idx = 0; idx < packingItems.value.length; idx++) {
@@ -353,9 +449,15 @@ const clearDraft = () => {
     draftTimestamp.value = null;
 };
 
-// Watch for changes to auto-save
+// Watch for changes to auto-save - Only save when there's actual form data
 watch([selectedCustomer, packingItems], () => {
-    autoSaveDraft();
+    const hasRealData = selectedCustomer.value || packingItems.value.some(item =>
+        item.productId && item.colorId && item.sizeId && item.quantity > 0
+    );
+
+    if (hasRealData) {
+        autoSaveDraft();
+    }
 }, { deep: true });
 
 // API Calls
@@ -503,6 +605,25 @@ const onColorChange = async (idx) => {
     }
 };
 
+// Updated size change handler with proper automatic row addition
+const onSizeChange = (idx) => {
+    updateAvailableQuantity(idx);
+
+    // If this is the last row and all fields are filled, add a new row
+    const currentItem = packingItems.value[idx];
+    if (idx === packingItems.value.length - 1 &&
+        currentItem.productId &&
+        currentItem.colorId &&
+        currentItem.sizeId &&
+        currentItem.quantity > 0) {
+
+        // Wait a bit for the current selection to settle, then add new row
+        setTimeout(() => {
+            addNewRow();
+        }, 300);
+    }
+};
+
 const updateAvailableQuantity = (idx) => {
     const item = packingItems.value[idx];
     if (item.sizeId && item.colorStockData && item.colorStockData.length > 0) {
@@ -536,14 +657,30 @@ const validateQuantity = (idx) => {
 };
 
 const addNewRow = () => {
-    packingItems.value.push(createEmptyItem());
+    // Only add new row if the last row is not empty
+    const lastItem = packingItems.value[packingItems.value.length - 1];
+    if (lastItem.productId || lastItem.colorId || lastItem.sizeId || lastItem.quantity > 1) {
+        packingItems.value.push(createEmptyItem());
+
+        // Scroll to the new row
+        nextTick(() => {
+            const tableWrapper = document.querySelector('.table-wrapper');
+            if (tableWrapper) {
+                tableWrapper.scrollTop = tableWrapper.scrollHeight;
+            }
+        });
+    } else {
+        alert('Please fill the current row before adding a new one.');
+    }
 };
 
 const removeItem = (idx) => {
-    if (packingItems.value.length > 1) {
-        packingItems.value.splice(idx, 1);
-    } else {
-        packingItems.value[0] = createEmptyItem();
+    const removedItem = packingItems.value[idx];
+    packingItems.value.splice(idx, 1);
+
+    // Ensure we have at least one row
+    if (packingItems.value.length === 0) {
+        packingItems.value = [createEmptyItem()];
     }
 };
 
@@ -770,14 +907,23 @@ const saveAndExportPDF = async () => {
     }
 };
 
-// Common function to create packing slip
+
 const createPackingSlip = async () => {
     // Generate slip number
     const slipNumber = `PSLIP${Date.now()}`;
     const today = new Date().toISOString().split('T')[0];
 
-    // Prepare lines array with names and codes
-    const lines = packingItems.value.map(item => {
+    // Filter out empty rows and only send valid ones
+    const validItems = packingItems.value.filter(item =>
+        item.productId && item.colorId && item.sizeId && item.quantity > 0
+    );
+
+    if (validItems.length === 0) {
+        throw new Error("No valid items to save");
+    }
+
+    // Prepare lines array with names and codes from valid items only
+    const lines = validItems.map(item => {
         const product = products.value.find(p => p.id == item.productId);
         const color = item.availableColors.find(c => c.color_id == item.colorId);
         const size = item.availableSizes.find(s => s.size_id == item.sizeId);
@@ -793,14 +939,14 @@ const createPackingSlip = async () => {
         };
     });
 
-    // Single API call with all lines
+    console.log('Sending lines to API:', lines); // Debug log
+
+
     const response = await axios.post("/packingslips/", {
         slip_number: slipNumber,
         date: today,
         customer: selectedCustomer.value,
-        lines: lines.map(({ product, color, size, quantity }) => ({
-            product, color, size, quantity
-        }))
+        lines: lines
     });
 
     // Return the created slip data for export with names included
@@ -977,13 +1123,13 @@ const resetForm = () => {
     font-size: 0.85rem;
 }
 
-.form-group select,
-.form-group input {
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    background: #fff;
+.form-group :deep(.el-select) {
+    width: 100%;
+}
+
+.form-group :deep(.el-input__inner) {
+    height: 40px !important;
+    border-radius: 4px !important;
 }
 
 .table-wrapper {
@@ -991,6 +1137,8 @@ const resetForm = () => {
     border: 1px solid #e0e0e0;
     border-radius: 4px;
     overflow: hidden;
+    max-height: 600px;
+    overflow-y: auto;
 }
 
 .stock-table {
@@ -1033,12 +1181,13 @@ const resetForm = () => {
     width: 70px;
 }
 
-.stock-table select {
+.stock-table :deep(.el-select) {
     width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 0.85rem;
+}
+
+.stock-table :deep(.el-input__inner) {
+    height: 36px !important;
+    border-radius: 4px !important;
 }
 
 .quantity-input {
@@ -1147,6 +1296,41 @@ const resetForm = () => {
     font-size: 0.8rem;
 }
 
+/* Element Plus custom styles */
+:deep(.el-select) {
+    --el-select-input-focus-border-color: #409eff;
+}
+
+:deep(.el-select .el-input__inner:focus) {
+    border-color: #409eff;
+}
+
+:deep(.el-select-dropdown) {
+    border-radius: 4px;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+:deep(.el-select-dropdown__item) {
+    padding: 8px 12px;
+}
+
+:deep(.el-select-dropdown__item.hover) {
+    background-color: #f5f7fa;
+}
+
+:deep(.el-select-dropdown__item.selected) {
+    background-color: #409eff;
+    color: white;
+}
+
+.text-red-500 {
+    color: #f44336;
+}
+
+.text-green-600 {
+    color: #059669;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .form-actions {
@@ -1166,6 +1350,11 @@ const resetForm = () => {
     .draft-actions {
         width: 100%;
         justify-content: flex-start;
+    }
+
+    .main-content {
+        margin-left: 0;
+        padding: 10px;
     }
 }
 </style>

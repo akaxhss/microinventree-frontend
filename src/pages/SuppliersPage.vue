@@ -31,7 +31,11 @@
                             <div class="form-group">
                                 <label for="supplierEmail">Email</label>
                                 <input type="email" id="supplierEmail" v-model="supplierForm.email"
-                                    placeholder="supplier@example.com" class="form-input" />
+                                    @blur="validateEmail" @input="clearEmailError" placeholder="supplier@example.com"
+                                    class="form-input" :class="{ 'input-error': emailError }" />
+                                <div v-if="emailError" class="error-message">
+                                    ❌ {{ emailError }}
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label for="contactNumber">Contact Number</label>
@@ -43,13 +47,32 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="website">Website</label>
-                                <input type="url" id="website" v-model="supplierForm.website"
-                                    placeholder="https://example.com" class="form-input" />
+                                <input type="url" id="website" v-model="supplierForm.website" @blur="validateWebsite"
+                                    @input="clearWebsiteError" placeholder="https://example.com" class="form-input"
+                                    :class="{ 'input-error': websiteError }" />
+                                <div v-if="websiteError" class="error-message">
+                                    ❌ {{ websiteError }}
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label for="gstNumber">GST Number</label>
                                 <input type="text" id="gstNumber" v-model="supplierForm.gst_number"
                                     placeholder="GST number" class="form-input" />
+                            </div>
+                        </div>
+
+                        <!-- Address and Place Fields -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="place">Place *</label>
+                                <input type="text" id="place" v-model="supplierForm.place"
+                                    placeholder="Enter place/city" class="form-input" />
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="address">Address *</label>
+                                <textarea id="address" v-model="supplierForm.address"
+                                    placeholder="Full address of the supplier" class="form-textarea"
+                                    rows="3"></textarea>
                             </div>
                         </div>
 
@@ -70,7 +93,7 @@
                         </div>
 
                         <div class="form-actions">
-                            <button class="btn save-btn" @click="saveSupplier" :disabled="!supplierForm.name">
+                            <button class="btn save-btn" @click="saveSupplier" :disabled="!canSave">
                                 {{ isEditing ? '💾 Update Supplier' : '➕ Add Supplier' }}
                             </button>
                             <button v-if="isEditing" class="btn cancel-btn" @click="cancelEdit">
@@ -92,8 +115,10 @@
                                 <tr>
                                     <th>Name</th>
                                     <th>Company</th>
+                                    <th>Place</th>
                                     <th>Contact</th>
                                     <th>Email</th>
+                                    <th>Website</th>
                                     <th>Status</th>
                                     <th class="actions-col">Actions</th>
                                 </tr>
@@ -108,6 +133,15 @@
                                     <td class="company-cell">
                                         {{ supplier.company_name || '-' }}
                                     </td>
+                                    <td class="place-cell">
+                                        <div class="place-info">
+                                            <strong>{{ supplier.place || '-' }}</strong>
+                                            <div v-if="supplier.address" class="address-tooltip">
+                                                📍
+                                                <div class="tooltip-text">{{ supplier.address }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
                                     <td class="contact-cell">
                                         {{ supplier.contact_number || '-' }}
                                     </td>
@@ -117,16 +151,28 @@
                                         </a>
                                         <span v-else>-</span>
                                     </td>
+                                    <td class="website-cell">
+                                        <a v-if="isValidWebsite(supplier.website)" :href="supplier.website"
+                                            target="_blank" class="website-link">
+                                            🌐 Visit
+                                        </a>
+                                        <span v-else-if="supplier.website" class="invalid-website"
+                                            :title="supplier.website">
+                                            ❌ Invalid
+                                        </span>
+                                        <span v-else>-</span>
+                                    </td>
                                     <td class="status-cell">
                                         <span class="status-badge" :class="supplier.status">
                                             {{ supplier.status === 'active' ? '✅ Active' : '❌ Inactive' }}
                                         </span>
                                     </td>
                                     <td class="actions-cell">
-                                        <button class="btn edit-btn" @click="editSupplier(supplier)">
+                                        <button class="btn edit-btn" @click="editSupplier(supplier)" title="Edit">
                                             ✏️
                                         </button>
-                                        <button class="btn danger-btn" @click="deleteSupplier(supplier.id)">
+                                        <button class="btn danger-btn" @click="deleteSupplier(supplier.id)"
+                                            title="Delete">
                                             🗑️
                                         </button>
                                     </td>
@@ -141,7 +187,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from "vue";
+import { ref, onMounted, reactive, computed } from "vue";
 import axios from "../plugins/axios.js";
 import Sidebar from "../components/Sidebar.vue";
 import ModernHeader from "../components/header.vue";
@@ -150,6 +196,7 @@ import ModernHeader from "../components/header.vue";
 const suppliers = ref([]);
 const isEditing = ref(false);
 const editingId = ref(null);
+const websiteError = ref("");
 
 // Supplier form
 const supplierForm = reactive({
@@ -160,8 +207,85 @@ const supplierForm = reactive({
     website: "",
     note: "",
     status: "active",
-    gst_number: ""
+    gst_number: "",
+    place: "",
+    address: ""
 });
+
+// Computed property for save button
+const canSave = computed(() => {
+    const hasRequiredFields = supplierForm.name.trim() &&
+        supplierForm.place.trim() &&
+        supplierForm.address.trim();
+
+    const hasValidWebsite = !supplierForm.website || isValidWebsite(supplierForm.website);
+
+    return hasRequiredFields && hasValidWebsite;
+});
+
+const emailError = ref("");
+
+// Email validation function
+const isValidEmail = (email) => {
+    if (!email) return true; // Empty is valid (optional field)
+
+    // Basic email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+};
+
+// Validate email on blur
+const validateEmail = () => {
+    if (!supplierForm.email) {
+        emailError.value = "";
+        return;
+    }
+
+    if (!isValidEmail(supplierForm.email)) {
+        emailError.value = "Please enter a valid email address (e.g., example@domain.com)";
+    } else {
+        emailError.value = "";
+    }
+};
+
+// Clear email error when user starts typing
+const clearEmailError = () => {
+    if (emailError.value) {
+        emailError.value = "";
+    }
+};
+const isValidWebsite = (url) => {
+    if (!url) return true; // Empty is valid (optional field)
+
+    // Basic URL validation
+    try {
+        const urlObj = new URL(url);
+        return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+        return false;
+    }
+};
+
+// Validate website on blur
+const validateWebsite = () => {
+    if (!supplierForm.website) {
+        websiteError.value = "";
+        return;
+    }
+
+    if (!isValidWebsite(supplierForm.website)) {
+        websiteError.value = "Please enter a valid website URL (e.g., https://example.com)";
+    } else {
+        websiteError.value = "";
+    }
+};
+
+// Clear website error when user starts typing
+const clearWebsiteError = () => {
+    if (websiteError.value) {
+        websiteError.value = "";
+    }
+};
 
 // Load suppliers on mount
 onMounted(async () => {
@@ -186,6 +310,23 @@ const saveSupplier = async () => {
         return;
     }
 
+    if (!supplierForm.place.trim()) {
+        alert("Please enter supplier place!");
+        return;
+    }
+
+    if (!supplierForm.address.trim()) {
+        alert("Please enter supplier address!");
+        return;
+    }
+
+    // Final website validation before saving
+    if (supplierForm.website && !isValidWebsite(supplierForm.website)) {
+        websiteError.value = "Please enter a valid website URL (e.g., https://example.com)";
+        alert("Please fix the website URL before saving!");
+        return;
+    }
+
     try {
         const supplierData = {
             name: supplierForm.name.trim(),
@@ -195,7 +336,9 @@ const saveSupplier = async () => {
             website: supplierForm.website.trim() || null,
             note: supplierForm.note.trim() || null,
             status: supplierForm.status,
-            gst_number: supplierForm.gst_number.trim() || null
+            gst_number: supplierForm.gst_number.trim() || null,
+            place: supplierForm.place.trim(),
+            address: supplierForm.address.trim()
         };
 
         if (isEditing.value) {
@@ -232,6 +375,11 @@ const editSupplier = (supplier) => {
     supplierForm.note = supplier.note || "";
     supplierForm.status = supplier.status;
     supplierForm.gst_number = supplier.gst_number || "";
+    supplierForm.place = supplier.place || "";
+    supplierForm.address = supplier.address || "";
+
+    // Clear any existing website error when editing
+    websiteError.value = "";
 };
 
 // Cancel edit
@@ -267,6 +415,9 @@ const resetForm = () => {
     supplierForm.note = "";
     supplierForm.status = "active";
     supplierForm.gst_number = "";
+    supplierForm.place = "";
+    supplierForm.address = "";
+    websiteError.value = "";
 };
 </script>
 
@@ -366,9 +517,29 @@ const resetForm = () => {
     box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
 }
 
+.form-input.input-error {
+    border-color: #f44336;
+    box-shadow: 0 0 0 2px rgba(244, 67, 54, 0.1);
+}
+
+.form-input.input-error:focus {
+    border-color: #f44336;
+    box-shadow: 0 0 0 2px rgba(244, 67, 54, 0.2);
+}
+
 .form-textarea {
     resize: vertical;
     min-height: 80px;
+}
+
+.error-message {
+    color: #f44336;
+    font-size: 0.8rem;
+    margin-top: 5px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .form-actions {
@@ -504,11 +675,64 @@ const resetForm = () => {
 
 .company-cell,
 .contact-cell,
-.email-cell {
-    max-width: 200px;
+.email-cell,
+.place-cell,
+.website-cell {
+    max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.place-cell {
+    max-width: 120px;
+}
+
+.place-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.address-tooltip {
+    position: relative;
+    cursor: pointer;
+}
+
+.address-tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+.tooltip-text {
+    visibility: hidden;
+    width: 300px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 8px 12px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 0.8rem;
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+.tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #333 transparent transparent transparent;
 }
 
 .email-link {
@@ -518,6 +742,22 @@ const resetForm = () => {
 
 .email-link:hover {
     text-decoration: underline;
+}
+
+.website-link {
+    color: #4CAF50;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.website-link:hover {
+    text-decoration: underline;
+}
+
+.invalid-website {
+    color: #f44336;
+    font-weight: 500;
+    cursor: help;
 }
 
 .status-cell {
@@ -579,6 +819,25 @@ const resetForm = () => {
         flex-direction: column;
         align-items: flex-start;
         gap: 4px;
+    }
+
+    .place-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .tooltip-text {
+        width: 250px;
+        font-size: 0.7rem;
+    }
+
+    .company-cell,
+    .contact-cell,
+    .email-cell,
+    .place-cell,
+    .website-cell {
+        max-width: 120px;
     }
 }
 </style>
