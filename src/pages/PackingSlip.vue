@@ -146,9 +146,9 @@
             </div>
 
             <!-- Packing Slips List View -->
-            <div class="list-container">
+            <!-- <div class="list-container">
                 <ReportsOfPackingSlips :auto-load-today="true" />
-            </div>
+            </div> -->
         </div>
     </div>
 </template>
@@ -161,7 +161,7 @@ import autoTable from "jspdf-autotable";
 import axios from "../plugins/axios.js";
 import Sidebar from "../components/Sidebar.vue";
 import ModernHeader from "../components/header.vue";
-import ReportsOfPackingSlips from "./child/ReportsOfPackingSlips.vue";
+// import ReportsOfPackingSlips from "./child/ReportsOfPackingSlips.vue";
 
 // Element Plus components
 import { ElSelect, ElOption } from 'element-plus';
