@@ -13,36 +13,41 @@
       <div class="filters-grid">
         <div class="filter-group">
           <label>Select Customer</label>
-          <select v-model="selectedCustomerId" class="filter-select" @change="handleCustomerChange">
-            <option value="">All Customers</option>
-            <option v-for="customer in customers" :key="customer.id" :value="customer.id">
-              {{ customer.name }} ({{ customer.place }})
-            </option>
-          </select>
+          <el-select v-model="selectedCustomerId" placeholder="All Customers" class="filter-select"
+            @change="handleCustomerChange" clearable filterable>
+            <!-- Always show "All Customers" option at the top -->
+            <el-option label="All Customers" value="" />
+            <!-- Then show sorted customers -->
+            <el-option v-for="customer in sortedCustomers" :key="customer.id"
+              :label="`${customer.name} (${customer.place})`" :value="customer.id" />
+          </el-select>
         </div>
 
         <div class="filter-group">
           <label>Single Date</label>
-          <input type="date" v-model="singleDate" class="filter-input" />
+          <el-date-picker v-model="singleDate" type="date" placeholder="Select date" format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD" class="filter-input" />
         </div>
 
         <div class="filter-group">
           <label>Start Date</label>
-          <input type="date" v-model="startDate" class="filter-input" />
+          <el-date-picker v-model="startDate" type="date" placeholder="Select start date" format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD" class="filter-input" />
         </div>
 
         <div class="filter-group">
           <label>End Date</label>
-          <input type="date" v-model="endDate" class="filter-input" />
+          <el-date-picker v-model="endDate" type="date" placeholder="Select end date" format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD" class="filter-input" />
         </div>
 
         <div class="filter-actions">
-          <button class="generate-btn" @click="fetchPackingSlips(1)" :disabled="loading">
+          <el-button type="primary" @click="fetchPackingSlips(1)" :loading="loading" class="generate-btn">
             {{ loading ? 'Loading...' : 'Generate Report' }}
-          </button>
-          <button class="reset-btn" @click="resetFilters" :disabled="loading">
+          </el-button>
+          <el-button @click="resetFilters" :disabled="loading" class="reset-btn">
             Reset Filters
-          </button>
+          </el-button>
         </div>
       </div>
     </div>
@@ -53,12 +58,14 @@
         <h3> Export Options</h3>
       </div>
       <div class="export-buttons">
-        <button class="export-btn excel" @click="exportExcel(packingSlips)">
+        <el-button type="success" @click="exportExcel(packingSlips)">
+          <i class="el-icon-download"></i>
           Export All Excel
-        </button>
-        <button class="export-btn pdf" @click="exportPDF(packingSlips)">
+        </el-button>
+        <el-button type="danger" @click="exportPDF(packingSlips)">
+          <i class="el-icon-document"></i>
           Export All PDF
-        </button>
+        </el-button>
       </div>
     </div>
 
@@ -100,15 +107,18 @@
             </div>
 
             <div class="slip-actions" @click.stop>
-              <button class="action-btn edit" @click="editSlip(slip.slip_number)" title="Edit Packing Slip">
-                ✏️ Edit
-              </button>
-              <button class="action-btn excel" @click="exportSingleExcel(slip)" title="Export Excel">
-                📊
-              </button>
-              <button class="action-btn pdf" @click="exportSinglePDF(slip)" title="Export PDF">
-                📄
-              </button>
+              <el-button size="small" @click="editSlip(slip.slip_number)" title="Edit Packing Slip">
+                <i class="el-icon-edit"></i>
+                Edit
+              </el-button>
+              <el-button size="small" type="success" @click="exportSingleExcel(slip)" title="Export Excel">
+                <i class="el-icon-download"></i>
+                Excel
+              </el-button>
+              <el-button size="small" type="danger" @click="exportSinglePDF(slip)" title="Export PDF">
+                <i class="el-icon-document"></i>
+                PDF
+              </el-button>
               <span class="expand-icon">
                 {{ expandedSlip === slip.id ? "▲" : "▼" }}
               </span>
@@ -175,23 +185,23 @@
             totalCount }} results
         </div>
         <div class="pagination-controls">
-          <button class="pagination-btn" :disabled="currentPage === 1 || loading"
-            @click="() => goToPage(currentPage - 1)">
+          <el-button size="small" :disabled="currentPage === 1 || loading" @click="() => goToPage(currentPage - 1)">
             Previous
-          </button>
+          </el-button>
 
           <div class="page-numbers">
-            <button v-for="page in visiblePages" :key="page" class="page-number"
-              :class="{ active: page === currentPage }" @click="() => goToPage(page)" :disabled="loading">
+            <el-button v-for="page in visiblePages" :key="page" size="small"
+              :type="page === currentPage ? 'primary' : ''" @click="() => goToPage(page)" :disabled="loading"
+              class="page-number">
               {{ page }}
-            </button>
+            </el-button>
             <span v-if="showEllipsis" class="page-ellipsis">...</span>
           </div>
 
-          <button class="pagination-btn" :disabled="currentPage === totalPages || loading"
+          <el-button size="small" :disabled="currentPage === totalPages || loading"
             @click="() => goToPage(currentPage + 1)">
             Next
-          </button>
+          </el-button>
         </div>
       </div>
     </div>
@@ -226,37 +236,16 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import axios from "../../plugins/axios.js";
 
+// Element Plus components
+import { ElSelect, ElOption, ElButton, ElDatePicker } from 'element-plus';
+
 const props = defineProps({
   autoLoadToday: {
     type: Boolean,
     default: false
   }
 });
-// Auto load today data
-const loadTodaysData = async () => {
-  try {
-    loading.value = true;
-    hasSearched.value = true;
 
-    // Set today's date
-    const today = new Date().toISOString().split('T')[0];
-    singleDate.value = today;
-
-    // Fetch today's packing slips
-    const res = await axios.get("/packingslipsfilter/", {
-      params: { date: today }
-    });
-
-    packingSlips.value = res.data;
-    resetPaginationData();
-
-  } catch (error) {
-    console.error("Error fetching today's packing slips:", error);
-    alert("Error fetching today's packing slips!");
-  } finally {
-    loading.value = false;
-  }
-};
 // Router
 const router = useRouter();
 
@@ -289,8 +278,13 @@ const distributorInfo = {
   gst: "GST: 32AAPFA6202PIZB"
 };
 
-
 // Computed properties
+const sortedCustomers = computed(() => {
+  return [...customers.value].sort((a, b) => {
+    return a.name.localeCompare(b.name);
+  });
+});
+
 const totalItems = computed(() => {
   return packingSlips.value.reduce((total, slip) => {
     return total + slip.lines.reduce((sum, line) => sum + line.quantity, 0);
@@ -334,6 +328,32 @@ const loadCustomers = async () => {
   }
 };
 
+// Auto load today data
+const loadTodaysData = async () => {
+  try {
+    loading.value = true;
+    hasSearched.value = true;
+
+    // Set today's date
+    const today = new Date().toISOString().split('T')[0];
+    singleDate.value = today;
+
+    // Fetch today's packing slips
+    const res = await axios.get("/packingslipsfilter/", {
+      params: { date: today }
+    });
+
+    packingSlips.value = res.data;
+    resetPaginationData();
+
+  } catch (error) {
+    console.error("Error fetching today's packing slips:", error);
+    alert("Error fetching today's packing slips!");
+  } finally {
+    loading.value = false;
+  }
+};
+
 const handleCustomerChange = () => {
   // Reset to first page when customer changes
   currentPage.value = 1;
@@ -358,7 +378,7 @@ const fetchPackingSlips = async (page = 1) => {
 
     if (showPagination.value) {
       // Use paginated API for "All Customers" with no other filters
-      console.log('Fetching page:', page); // Debug log
+      console.log('Fetching page:', page);
       const res = await axios.get(`/packingslippagination/?page=${page}`);
       handlePaginationResponse(res);
     } else {
@@ -390,7 +410,7 @@ const fetchPackingSlips = async (page = 1) => {
 };
 
 const goToPage = (page) => {
-  console.log('Going to page:', page); // Debug log
+  console.log('Going to page:', page);
   if (page < 1 || page > totalPages.value || loading.value) return;
   fetchPackingSlips(page);
 };
@@ -447,6 +467,7 @@ const getCustomerName = (customerId) => {
   const customer = customers.value.find(c => c.id === customerId);
   return customer ? customer.name : `Customer #${customerId}`;
 };
+
 const getCustomerPlace = (customerId) => {
   const customer = customers.value.find(c => c.id === customerId);
   return customer ? customer.place : null;
@@ -505,7 +526,7 @@ const groupByProduct = (lines) => {
   return result;
 };
 
-// Export functions remain the same
+// Export functions
 const exportExcel = (data) => {
   const wb = XLSX.utils.book_new();
 
@@ -596,21 +617,17 @@ const exportPDF = (data) => {
     const customer = getCustomerDetails(slip.customer);
     const grouped = groupByProduct(slip.lines);
 
-
     doc.setFontSize(16);
     doc.text("PACKING SLIP REPORT", 105, 20, { align: "center" });
-
 
     const boxY = 30;
     const boxWidth = 180;
     const boxHeight = 55;
 
-
     doc.setDrawColor(0);
     doc.setFillColor(240, 240, 240);
     doc.rect(14, boxY, boxWidth, boxHeight, 'F');
     doc.rect(14, boxY, boxWidth, boxHeight, 'S');
-
 
     doc.setDrawColor(150, 150, 150);
     doc.line(105, boxY + 5, 105, boxY + boxHeight - 5);
@@ -622,8 +639,6 @@ const exportPDF = (data) => {
     doc.setFont(undefined, 'normal');
 
     let currentY = boxY + 17;
-
-
 
     // Distributor address
     const addressLines = doc.splitTextToSize(distributorInfo.address, 75);
@@ -738,238 +753,40 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.customer-place {
-  font-size: 12px;
-  color: #666;
-  margin-top: 2px;
-}
-
-/* Edit button in slip actions */
-.action-btn.edit {
-  background: #ffc107;
-  color: #333;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: background-color 0.3s;
-  white-space: nowrap;
-}
-
-.action-btn.edit:hover {
-  background: #e0a800;
-}
-
-/* Update existing slip actions to accommodate edit button */
-.slip-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .slip-actions {
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-}
-
-.action-btn.edit {
-  background: #ffc107;
-  color: #333;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: background-color 0.3s;
-  white-space: nowrap;
-}
-
-.action-btn.edit:hover {
-  background: #e0a800;
-}
-
-/* Update existing slip actions to accommodate edit button */
-.slip-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-
-@media (max-width: 768px) {
-  .slip-actions {
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-}
-
-.pagination-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem;
-  border-top: 1px solid #e5e7eb;
-  background: #f8fafc;
-}
-
-.pagination-info {
-  color: #6b7280;
-  font-size: 0.875rem;
-}
-
-.pagination-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.pagination-btn {
-  padding: 0.5rem 1rem;
-  border: 1px solid #d1d5db;
-  background: white;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.pagination-btn:hover:not(:disabled) {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-.pagination-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.page-numbers {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.page-number {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
-  background: white;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  min-width: 2.5rem;
-}
-
-.page-number:hover {
-  background: #f3f4f6;
-}
-
-.page-number.active {
-  background: #10b981;
-  color: white;
-  border-color: #10b981;
-}
-
-.page-ellipsis {
-  padding: 0.5rem;
-  color: #6b7280;
-}
-
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.8);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.loading-spinner {
-  border: 4px solid #f3f4f6;
-  border-left: 4px solid #10b981;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-.pagination-info {
-  margin-left: 10px;
-  font-size: 0.8rem;
-  color: #6b7280;
-}
-
-/* Keep all existing styles below */
 .reports-container {
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 24px;
-  font-family: 'Inter', 'Segoe UI', sans-serif;
+  padding: 20px;
 }
 
-.reports-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 24px;
-  font-family: 'Inter', 'Segoe UI', sans-serif;
-}
-
-/* Header Section */
 .header-section {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 30px;
 }
 
 .page-title {
-  font-size: 2.2rem;
-  font-weight: 700;
-  color: #1f2937;
+  font-size: 2rem;
+  color: #333;
   margin-bottom: 8px;
 }
 
 .page-subtitle {
+  color: #666;
   font-size: 1.1rem;
-  color: #6b7280;
 }
 
-/* Filters Card */
 .filters-card {
   background: white;
-  padding: 24px;
   border-radius: 12px;
+  padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin-bottom: 24px;
 }
 
-.filters-header {
-  margin-bottom: 20px;
-}
-
 .filters-header h3 {
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
+  margin: 0 0 16px 0;
+  color: #333;
+  font-size: 1.2rem;
 }
 
 .filters-grid {
@@ -982,79 +799,42 @@ onMounted(() => {
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .filter-group label {
   font-weight: 500;
-  color: #374151;
+  color: #555;
   font-size: 0.9rem;
 }
 
 .filter-select,
 .filter-input {
-  padding: 10px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  background: white;
-}
-
-.filter-select:focus,
-.filter-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  width: 100%;
 }
 
 .filter-actions {
   display: flex;
   gap: 12px;
-  grid-column: 1 / -1;
+  align-items: center;
 }
 
 .generate-btn,
 .reset-btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  flex: 1;
 }
 
-.generate-btn {
-  background: #10b981;
-  color: white;
-}
-
-.generate-btn:hover {
-  background: #059669;
-}
-
-.reset-btn {
-  background: #6b7280;
-  color: white;
-}
-
-.reset-btn:hover {
-  background: #4b5563;
-}
-
-/* Export Section */
 .export-section {
   background: white;
-  padding: 20px;
   border-radius: 12px;
+  padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin-bottom: 24px;
 }
 
 .export-header h3 {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #1f2937;
   margin: 0 0 16px 0;
+  color: #333;
 }
 
 .export-buttons {
@@ -1062,172 +842,141 @@ onMounted(() => {
   gap: 12px;
 }
 
-.export-btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.export-btn.excel {
-  background: #059669;
-  color: white;
-}
-
-.export-btn.excel:hover {
-  background: #047857;
-}
-
-.export-btn.pdf {
-  background: #dc2626;
-  color: white;
-}
-
-.export-btn.pdf:hover {
-  background: #b91c1c;
-}
-
-/* Slips Container */
 .slips-container {
   background: white;
   border-radius: 12px;
+  padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
 }
 
 .results-header {
-  padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f8fafc;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .results-header h3 {
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0 0 8px 0;
+  margin: 0;
+  color: #333;
 }
 
 .results-summary {
-  color: #6b7280;
+  color: #666;
   font-size: 0.9rem;
 }
 
-/* Slip Cards */
+.pagination-info {
+  color: #999;
+}
+
 .slips-list {
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .slip-card {
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.slip-card:last-child {
-  border-bottom: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .slip-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
+  padding: 16px;
+  background: #f8fafc;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s;
 }
 
 .slip-header:hover {
-  background: #f8fafc;
+  background: #f1f5f9;
 }
 
 .slip-basic-info {
-  flex: 1;
+  flex: 0 0 150px;
 }
 
 .slip-number {
   font-size: 1.1rem;
-  color: #1f2937;
   margin-bottom: 4px;
 }
 
 .slip-date {
+  color: #666;
   font-size: 0.9rem;
-  color: #6b7280;
 }
 
 .slip-customer-info {
-  flex: 2;
-  text-align: center;
+  flex: 1;
+  margin: 0 20px;
 }
 
 .customer-name {
-  font-size: 1rem;
-  color: #1f2937;
+  font-size: 1.1rem;
+  margin-bottom: 4px;
+}
+
+.customer-place {
+  color: #666;
+  font-size: 0.9rem;
   margin-bottom: 4px;
 }
 
 .slip-meta {
-  font-size: 0.85rem;
-  color: #6b7280;
+  color: #888;
+  font-size: 0.8rem;
 }
 
-
-.action-btn {
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
-}
-
-.action-btn:hover {
-  background: #f3f4f6;
+.slip-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .expand-icon {
-  color: #6b7280;
-  font-weight: bold;
-  margin-left: 8px;
+  margin-left: 12px;
+  color: #666;
 }
 
-/* Slip Details */
 .slip-details {
-  padding: 0 24px 24px 24px;
-  background: #fafafa;
+  padding: 20px;
+  background: white;
 }
 
 .empty-lines {
   text-align: center;
-  color: #6b7280;
-  font-style: italic;
-  padding: 40px;
-}
-
-.lines-header {
-  margin-bottom: 16px;
+  color: #666;
+  padding: 20px;
 }
 
 .lines-header h4 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
+  margin: 0 0 16px 0;
+  color: #333;
+}
+
+.product-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .product-block {
-  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
 .product-title {
+  background: #f8fafc;
+  padding: 12px 16px;
+  margin: 0;
   font-size: 1rem;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #e5e7eb;
+  color: #333;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .table-container {
@@ -1237,55 +986,77 @@ onMounted(() => {
 .items-table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.items-table th,
-.items-table td {
-  padding: 12px;
-  text-align: center;
-  border: 1px solid #e5e7eb;
 }
 
 .items-table th {
-  background: #f8fafc;
+  background: #f1f5f9;
+  padding: 8px 12px;
+  text-align: center;
   font-weight: 600;
-  color: #374151;
-  font-size: 0.85rem;
+  color: #333;
+  border: 1px solid #e2e8f0;
+}
+
+.items-table td {
+  padding: 8px 12px;
+  text-align: center;
+  border: 1px solid #e2e8f0;
 }
 
 .color-cell {
-  text-align: left;
+  font-weight: 500;
+  background: #f8fafc;
 }
 
 .quantity-cell {
-  font-weight: 500;
+  min-width: 50px;
 }
 
 .total-qty {
   font-weight: 600;
+  background: #f0f9ff;
 }
 
 .grand-total {
-  background: #fef3c7;
-  font-weight: 600;
+  background: #dbeafe;
 }
 
 .grand-total td {
-  border-top: 2px solid #d97706;
+  font-weight: 600;
 }
 
-/* Empty States */
+.pagination-container {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.page-numbers {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.page-ellipsis {
+  color: #666;
+  padding: 0 8px;
+}
+
 .empty-state,
 .initial-state {
   text-align: center;
   padding: 60px 20px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  color: #666;
 }
 
 .empty-icon,
@@ -1294,18 +1065,33 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
-.empty-state h3,
-.initial-state h3 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 8px;
+.loading-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #666;
 }
 
-.empty-state p,
-.initial-state p {
-  color: #6b7280;
-  font-size: 1rem;
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Responsive Design */
