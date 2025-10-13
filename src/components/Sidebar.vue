@@ -69,7 +69,7 @@
 
                 <div class="menu-section">Admin</div>
                 <router-link to="/databasebackup" class="menu-item" active-class="active">
-                    💾 Data BaseBackup
+                    💾 DataBase Backup
                 </router-link>
                 <router-link to="/auditlogs" class="menu-item" active-class="active">
                     📋 Audit Logs
