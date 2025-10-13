@@ -53,7 +53,7 @@
                 <router-link to="/packingslip" class="menu-item submenu-item" active-class="active">
                     ➕ Add Packing Slip
                 </router-link>
-                <router-link to="/reports" class="menu-item submenu-item" active-class="active">
+                <router-link to="/viewpackingslips" class="menu-item submenu-item" active-class="active">
                     👁️ View Packing Slip
                 </router-link>
 

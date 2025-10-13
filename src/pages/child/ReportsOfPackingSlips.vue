@@ -777,8 +777,9 @@ onMounted(() => {
 
 .filters-card {
   background: white;
-  border-radius: 12px;
-  padding: 24px;
+  border-radius: 15px;
+  padding: 34px 70px;
+
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin-bottom: 24px;
 }
