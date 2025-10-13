@@ -113,6 +113,11 @@
                     <button class="btn reset" @click="resetForm" :disabled="loading">🔄 Reset</button>
                 </div>
             </div>
+
+            <!-- Products Report View -->
+            <!-- <div class="list-container">
+                <ReportsOfProducts />
+            </div> -->
         </div>
     </div>
 </template>
@@ -122,6 +127,7 @@ import { ref, computed, onMounted, watch, nextTick } from "vue";
 import axios from "../plugins/axios.js";
 import Sidebar from "../components/Sidebar.vue";
 import ModernHeader from "../components/header.vue";
+//import ReportsOfProducts from "./child/ListOfStock-iteamsBySupplier.vue";
 
 // Element Plus components
 import { ElSelect, ElOption } from 'element-plus';
@@ -513,7 +519,16 @@ const resetForm = () => {
     }
 };
 </script>
+
 <style scoped>
+.list-container {
+    background: #fff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
+}
+
 .layout {
     display: flex;
 }

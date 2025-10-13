@@ -39,13 +39,25 @@
                     📂 Inventory
                 </router-link>
 
+                <!-- Stocks Main Menu -->
+                <div class="menu-section">Stocks</div>
+                <router-link to="/addstock" class="menu-item submenu-item" active-class="active">
+                    ➕ Add Stock
+                </router-link>
+                <router-link to="/stockbysuppliers" class="menu-item submenu-item" active-class="active">
+                    👁️ View Stock
+                </router-link>
+
+                <!-- Packing Slip Main Menu -->
+                <div class="menu-section">Packing Slip</div>
+                <router-link to="/packingslip" class="menu-item submenu-item" active-class="active">
+                    ➕ Add Packing Slip
+                </router-link>
+                <router-link to="/reports" class="menu-item submenu-item" active-class="active">
+                    👁️ View Packing Slip
+                </router-link>
+
                 <div class="menu-section">Activities</div>
-                <router-link to="/addstock" class="menu-item" active-class="active">
-                    📦 Add Stock
-                </router-link>
-                <router-link to="/packingslip" class="menu-item" active-class="active">
-                    🧾 Packing Slip
-                </router-link>
                 <router-link to="/stock-movements" class="menu-item" active-class="active">
                     🔁 Stock Movements
                 </router-link>
@@ -57,13 +69,13 @@
 
                 <div class="menu-section">Admin</div>
                 <router-link to="/databasebackup" class="menu-item" active-class="active">
-                    💾 Data Base Backup
+                    💾 Data BaseBackup
                 </router-link>
                 <router-link to="/auditlogs" class="menu-item" active-class="active">
                     📋 Audit Logs
                 </router-link>
                 <router-link to="/packingslipeditable" class="menu-item" active-class="active">
-                    🧾 Packing Slip Edit
+                    🧾 Packing Slip Update
                 </router-link>
 
                 <!-- Add space after last item -->
@@ -199,6 +211,33 @@
 .menu-item.active {
     background: #10b981;
     color: #fff;
+}
+
+/* Submenu item styles */
+.submenu-item {
+    padding-left: 28px;
+    font-size: 0.9rem;
+    position: relative;
+}
+
+.submenu-item::before {
+    content: "";
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 4px;
+    background-color: #94a3b8;
+    border-radius: 50%;
+}
+
+.submenu-item:hover::before {
+    background-color: #fff;
+}
+
+.submenu-item.active::before {
+    background-color: #fff;
 }
 
 /* Space after last item */

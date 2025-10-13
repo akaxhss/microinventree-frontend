@@ -16,7 +16,7 @@
           <select v-model="selectedCustomerId" class="filter-select" @change="handleCustomerChange">
             <option value="">All Customers</option>
             <option v-for="customer in customers" :key="customer.id" :value="customer.id">
-              {{ customer.name }}
+              {{ customer.name }} ({{ customer.place }})
             </option>
           </select>
         </div>
@@ -90,6 +90,9 @@
             <div class="slip-customer-info">
               <div class="customer-name">
                 <strong>{{ slip.customer_name || getCustomerName(slip.customer) }}</strong>
+              </div>
+              <div class="customer-place" v-if="getCustomerPlace(slip.customer)">
+                Location: {{ getCustomerPlace(slip.customer) }}
               </div>
               <div class="slip-meta">
                 {{ slip.lines.length }} items • Created: {{ formatDateTime(slip.created_at) }}
@@ -223,6 +226,37 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import axios from "../../plugins/axios.js";
 
+const props = defineProps({
+  autoLoadToday: {
+    type: Boolean,
+    default: false
+  }
+});
+// Auto load today data
+const loadTodaysData = async () => {
+  try {
+    loading.value = true;
+    hasSearched.value = true;
+
+    // Set today's date
+    const today = new Date().toISOString().split('T')[0];
+    singleDate.value = today;
+
+    // Fetch today's packing slips
+    const res = await axios.get("/packingslipsfilter/", {
+      params: { date: today }
+    });
+
+    packingSlips.value = res.data;
+    resetPaginationData();
+
+  } catch (error) {
+    console.error("Error fetching today's packing slips:", error);
+    alert("Error fetching today's packing slips!");
+  } finally {
+    loading.value = false;
+  }
+};
 // Router
 const router = useRouter();
 
@@ -245,7 +279,7 @@ const pageSize = 50;
 const nextPage = ref(null);
 const previousPage = ref(null);
 
-const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL"];
+const sizeHeaders = ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "Free Size"];
 
 // Distributor details
 const distributorInfo = {
@@ -254,6 +288,7 @@ const distributorInfo = {
   contact: "Phone: 0481 2425578 | Email: asdistributors2008@yahoo.com",
   gst: "GST: 32AAPFA6202PIZB"
 };
+
 
 // Computed properties
 const totalItems = computed(() => {
@@ -399,6 +434,9 @@ const resetFilters = () => {
   hasSearched.value = false;
   expandedSlip.value = null;
   resetPaginationData();
+  if (props.autoLoadToday) {
+    loadTodaysData();
+  }
 };
 
 const toggleSlip = (id) => {
@@ -408,6 +446,10 @@ const toggleSlip = (id) => {
 const getCustomerName = (customerId) => {
   const customer = customers.value.find(c => c.id === customerId);
   return customer ? customer.name : `Customer #${customerId}`;
+};
+const getCustomerPlace = (customerId) => {
+  const customer = customers.value.find(c => c.id === customerId);
+  return customer ? customer.place : null;
 };
 
 const getCustomerDetails = (customerId) => {
@@ -689,10 +731,19 @@ const exportSinglePDF = (slip) => exportPDF([slip]);
 
 onMounted(() => {
   loadCustomers();
+  if (props.autoLoadToday) {
+    loadTodaysData();
+  }
 });
 </script>
 
 <style scoped>
+.customer-place {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+
 /* Edit button in slip actions */
 .action-btn.edit {
   background: #ffc107;
@@ -725,9 +776,7 @@ onMounted(() => {
     justify-content: flex-end;
   }
 }
-</style>
 
-<style scoped>
 .action-btn.edit {
   background: #ffc107;
   color: #333;

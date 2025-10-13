@@ -144,6 +144,11 @@
                     <button class="btn reset" @click="resetForm" :disabled="loading">🔄 Reset</button>
                 </div>
             </div>
+
+            <!-- Packing Slips List View -->
+            <div class="list-container">
+                <ReportsOfPackingSlips :auto-load-today="true" />
+            </div>
         </div>
     </div>
 </template>
@@ -156,6 +161,7 @@ import autoTable from "jspdf-autotable";
 import axios from "../plugins/axios.js";
 import Sidebar from "../components/Sidebar.vue";
 import ModernHeader from "../components/header.vue";
+import ReportsOfPackingSlips from "./child/ReportsOfPackingSlips.vue";
 
 // Element Plus components
 import { ElSelect, ElOption } from 'element-plus';
@@ -969,6 +975,23 @@ const resetForm = () => {
 </script>
 
 <style scoped>
+/* Hide filters section and header in the child component */
+/* .list-container :deep(.filters-card),
+.list-container :deep(.header-section) {
+    display: none;
+}
+
+
+.list-container :deep(.page-subtitle) {
+    display: none;
+} */
+
+
+.list-container :deep(.page-title) {
+    font-size: 1.3rem;
+    margin-bottom: 0;
+}
+
 .layout {
     display: flex;
 }
@@ -987,6 +1010,7 @@ const resetForm = () => {
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     position: relative;
+    margin-bottom: 20px;
 }
 
 .page-title {
@@ -994,6 +1018,14 @@ const resetForm = () => {
     font-weight: 700;
     margin-bottom: 20px;
     color: #333;
+}
+
+/* List Container */
+.list-container {
+    background: #fff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Loading Overlay */

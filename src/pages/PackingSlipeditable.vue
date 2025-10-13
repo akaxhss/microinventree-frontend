@@ -227,7 +227,7 @@ const sortedAvailableSizes = (sizes) => {
     });
 };
 
-// Get available colors for a specific row (allow multiple same colors but filter based on product)
+// Get available colors for a specific row allow multiple same colors but filter based on product
 const getAvailableColors = (currentIndex) => {
     const currentItem = packingItems.value[currentIndex];
     if (!currentItem.productId || !currentItem.availableColors) {
@@ -237,7 +237,7 @@ const getAvailableColors = (currentIndex) => {
     return sortedAvailableColors(currentItem.availableColors || []);
 };
 
-// Get available sizes for a specific row (prevent duplicate sizes for same product-color combo)
+// Get available sizes for a specific row prevent duplicate sizes for same product-color combo
 const getAvailableSizes = (currentIndex) => {
     const currentItem = packingItems.value[currentIndex];
     if (!currentItem.productId || !currentItem.colorId || !currentItem.availableSizes) {
@@ -297,7 +297,7 @@ const getProductName = (productId) => {
 // Create empty item
 function createEmptyItem() {
     return {
-        lineId: null, // null for new rows
+        lineId: null,
         productId: "",
         colorId: "",
         sizeId: "",
@@ -332,14 +332,14 @@ const loadAllPackingSlips = async () => {
     }
 };
 
-// Check if URL has slip_number parameter and auto-load it
+
 const checkUrlForSlipNumber = () => {
     const slipNumberFromUrl = route.query.slip_number;
     if (slipNumberFromUrl) {
         selectedSlipNumber.value = slipNumberFromUrl;
         console.log('Auto-loading packing slip from URL:', slipNumberFromUrl);
 
-        // Wait a bit for the component to be fully mounted and data loaded
+
         setTimeout(() => {
             loadPackingSlipForEdit();
         }, 500);
@@ -390,7 +390,7 @@ const loadPackingSlipForEdit = async () => {
                 await loadProductDataForEdit(packingItems.value.length - 1);
             }
 
-            // Don't show alert when auto-loading from URL
+
             if (!route.query.slip_number) {
                 alert(`Packing slip "${slipData.slip_number}" loaded for editing!`);
             }
@@ -624,7 +624,7 @@ const updatePackingSlip = async () => {
             customer: selectedCustomer.value,
             date: new Date().toISOString().split('T')[0],
             lines: packingItems.value.map(item => ({
-                id: item.lineId, // null for new rows, existing ID for existing rows
+                id: item.lineId,
                 product: item.productId,
                 color: item.colorId,
                 size: item.sizeId,
@@ -653,7 +653,7 @@ const updateAndGetSlipData = async () => {
         customer: selectedCustomer.value,
         date: new Date().toISOString().split('T')[0],
         lines: packingItems.value.map(item => ({
-            id: item.lineId, // null for new rows, existing ID for existing rows
+            id: item.lineId,
             product: item.productId,
             color: item.colorId,
             size: item.sizeId,
@@ -936,7 +936,7 @@ const resetForm = () => {
     currentSlipId.value = null;
 };
 
-// Watch for route changes in case user navigates with browser back/forward
+// Watch for route changes in case user navigates with browser back forward
 watch(
     () => route.query.slip_number,
     (newSlipNumber) => {

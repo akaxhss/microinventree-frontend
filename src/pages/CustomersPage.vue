@@ -67,7 +67,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="customer in customers" :key="customer.id">
+                <tr v-for="customer in sortedCustomers" :key="customer.id">
                   <td class="name-cell">
                     <strong>{{ customer.name }}</strong>
                   </td>
@@ -81,10 +81,10 @@
                     {{ customer.address || '-' }}
                   </td>
                   <td class="actions-cell">
-                    <button class="btn edit-btn" @click="editCustomer(customer)">
+                    <button class="btn edit-btn" @click="openEditPopup(customer)" title="Edit">
                       ✏️
                     </button>
-                    <button class="btn danger-btn" @click="deleteCustomer(customer.id)">
+                    <button class="btn danger-btn" @click="deleteCustomer(customer.id)" title="Delete">
                       🗑️
                     </button>
                   </td>
@@ -95,11 +95,57 @@
         </div>
       </div>
     </div>
+
+    <!-- Edit Customer Popup -->
+    <div v-if="showEditPopup" class="popup-overlay" @click="closeEditPopup">
+      <div class="popup-content" @click.stop>
+        <div class="popup-header">
+          <h3>Edit Customer</h3>
+          <button class="close-btn" @click="closeEditPopup">✕</button>
+        </div>
+        <div class="popup-body">
+          <div class="customer-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="editCustomerName">Customer Name *</label>
+                <input type="text" id="editCustomerName" v-model="editForm.name" placeholder="Enter customer name"
+                  class="form-input" />
+              </div>
+              <div class="form-group">
+                <label for="editCustomerContact">Contact</label>
+                <input type="text" id="editCustomerContact" v-model="editForm.contact"
+                  placeholder="Phone number or email" class="form-input" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="editCustomerPlace">Place</label>
+                <input type="text" id="editCustomerPlace" v-model="editForm.place" placeholder="City or location"
+                  class="form-input" />
+              </div>
+              <div class="form-group full-width">
+                <label for="editCustomerAddress">Address</label>
+                <textarea id="editCustomerAddress" v-model="editForm.address" placeholder="Full address"
+                  class="form-textarea" rows="3"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="popup-footer">
+          <button class="btn cancel-btn" @click="closeEditPopup">
+            ❌ Cancel
+          </button>
+          <button class="btn save-btn" @click="updateCustomer" :disabled="!editForm.name">
+            💾 Update Customer
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from "vue";
+import { ref, onMounted, reactive, computed } from "vue";
 import axios from "../plugins/axios.js";
 import Sidebar from "../components/Sidebar.vue";
 import ModernHeader from "../components/header.vue";
@@ -109,12 +155,30 @@ const customers = ref([]);
 const isEditing = ref(false);
 const editingId = ref(null);
 
+// Popup state
+const showEditPopup = ref(false);
+
 // Customer form
 const customerForm = reactive({
   name: "",
   contact: "",
   place: "",
   address: ""
+});
+
+// Edit form for popup
+const editForm = reactive({
+  name: "",
+  contact: "",
+  place: "",
+  address: ""
+});
+
+// Computed property for sorted customers
+const sortedCustomers = computed(() => {
+  return [...customers.value].sort((a, b) => {
+    return a.name.localeCompare(b.name);
+  });
 });
 
 // Load customers on mount
@@ -168,7 +232,54 @@ const saveCustomer = async () => {
   }
 };
 
-// Edit customer
+// Open edit popup
+const openEditPopup = (customer) => {
+  showEditPopup.value = true;
+  editingId.value = customer.id;
+
+  // Fill edit form with customer data
+  editForm.name = customer.name;
+  editForm.contact = customer.contact || "";
+  editForm.place = customer.place || "";
+  editForm.address = customer.address || "";
+};
+
+// Close edit popup
+const closeEditPopup = () => {
+  showEditPopup.value = false;
+  editingId.value = null;
+};
+
+// Update customer from popup
+const updateCustomer = async () => {
+  if (!editForm.name.trim()) {
+    alert("Please enter customer name!");
+    return;
+  }
+
+  try {
+    const customerData = {
+      name: editForm.name.trim(),
+      contact: editForm.contact.trim(),
+      place: editForm.place.trim(),
+      address: editForm.address.trim()
+    };
+
+    // Update existing customer
+    await axios.put(`/customers/${editingId.value}/`, customerData);
+    alert("Customer updated successfully!");
+
+    // Close popup and reload customers
+    closeEditPopup();
+    await loadCustomers();
+
+  } catch (error) {
+    console.error("Error updating customer:", error);
+    alert("Error updating customer!");
+  }
+};
+
+// Edit customer (for the main form)
 const editCustomer = (customer) => {
   isEditing.value = true;
   editingId.value = customer.id;
@@ -445,6 +556,80 @@ const resetForm = () => {
   max-width: 300px;
 }
 
+/* Popup Styles */
+.popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.popup-content {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 700px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 25px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #f8f9fa;
+  border-radius: 8px 8px 0 0;
+}
+
+.popup-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.3rem;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #666;
+  padding: 5px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.close-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.popup-body {
+  padding: 25px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.popup-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 25px;
+  border-top: 1px solid #e0e0e0;
+  background: #f8f9fa;
+  border-radius: 0 0 8px 8px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .form-row {
@@ -472,6 +657,19 @@ const resetForm = () => {
 
   .btn {
     text-align: center;
+  }
+
+  .popup-content {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .popup-body {
+    padding: 15px;
+  }
+
+  .popup-footer {
+    flex-direction: column;
   }
 }
 </style>

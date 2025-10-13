@@ -124,7 +124,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="supplier in suppliers" :key="supplier.id"
+                                <tr v-for="supplier in sortedSuppliers" :key="supplier.id"
                                     :class="{ 'inactive-row': supplier.status === 'inactive' }">
                                     <td class="name-cell">
                                         <strong>{{ supplier.name }}</strong>
@@ -168,7 +168,7 @@
                                         </span>
                                     </td>
                                     <td class="actions-cell">
-                                        <button class="btn edit-btn" @click="editSupplier(supplier)" title="Edit">
+                                        <button class="btn edit-btn" @click="openEditPopup(supplier)" title="Edit">
                                             ✏️
                                         </button>
                                         <button class="btn danger-btn" @click="deleteSupplier(supplier.id)"
@@ -180,6 +180,107 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Supplier Popup -->
+        <div v-if="showEditPopup" class="popup-overlay" @click="closeEditPopup">
+            <div class="popup-content" @click.stop>
+                <div class="popup-header">
+                    <h3>Edit Supplier</h3>
+                    <button class="close-btn" @click="closeEditPopup">✕</button>
+                </div>
+                <div class="popup-body">
+                    <div class="supplier-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editSupplierName">Supplier Name *</label>
+                                <input type="text" id="editSupplierName" v-model="editForm.name"
+                                    placeholder="Enter supplier name" class="form-input" />
+                            </div>
+                            <div class="form-group">
+                                <label for="editCompanyName">Company Name</label>
+                                <input type="text" id="editCompanyName" v-model="editForm.company_name"
+                                    placeholder="Company name" class="form-input" />
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editSupplierEmail">Email</label>
+                                <input type="email" id="editSupplierEmail" v-model="editForm.email"
+                                    @blur="validateEditEmail" @input="clearEditEmailError"
+                                    placeholder="supplier@example.com" class="form-input"
+                                    :class="{ 'input-error': editEmailError }" />
+                                <div v-if="editEmailError" class="error-message">
+                                    ❌ {{ editEmailError }}
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="editContactNumber">Contact Number</label>
+                                <input type="text" id="editContactNumber" v-model="editForm.contact_number"
+                                    placeholder="Phone number" class="form-input" />
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editWebsite">Website</label>
+                                <input type="url" id="editWebsite" v-model="editForm.website"
+                                    @blur="validateEditWebsite" @input="clearEditWebsiteError"
+                                    placeholder="https://example.com" class="form-input"
+                                    :class="{ 'input-error': editWebsiteError }" />
+                                <div v-if="editWebsiteError" class="error-message">
+                                    ❌ {{ editWebsiteError }}
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="editGstNumber">GST Number</label>
+                                <input type="text" id="editGstNumber" v-model="editForm.gst_number"
+                                    placeholder="GST number" class="form-input" />
+                            </div>
+                        </div>
+
+                        <!-- Address and Place Fields -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editPlace">Place *</label>
+                                <input type="text" id="editPlace" v-model="editForm.place"
+                                    placeholder="Enter place/city" class="form-input" />
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="editAddress">Address *</label>
+                                <textarea id="editAddress" v-model="editForm.address"
+                                    placeholder="Full address of the supplier" class="form-textarea"
+                                    rows="3"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editStatus">Status</label>
+                                <select id="editStatus" v-model="editForm.status" class="form-input">
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="editNote">Notes</label>
+                                <textarea id="editNote" v-model="editForm.note"
+                                    placeholder="Additional notes about the supplier" class="form-textarea"
+                                    rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="popup-footer">
+                    <button class="btn cancel-btn" @click="closeEditPopup">
+                        ❌ Cancel
+                    </button>
+                    <button class="btn save-btn" @click="updateSupplier" :disabled="!canEditSave">
+                        💾 Update Supplier
+                    </button>
                 </div>
             </div>
         </div>
@@ -198,6 +299,9 @@ const isEditing = ref(false);
 const editingId = ref(null);
 const websiteError = ref("");
 
+// Popup state
+const showEditPopup = ref(false);
+
 // Supplier form
 const supplierForm = reactive({
     name: "",
@@ -212,6 +316,26 @@ const supplierForm = reactive({
     address: ""
 });
 
+// Edit form for popup
+const editForm = reactive({
+    name: "",
+    email: "",
+    contact_number: "",
+    company_name: "",
+    website: "",
+    note: "",
+    status: "active",
+    gst_number: "",
+    place: "",
+    address: ""
+});
+
+// Validation errors
+const emailError = ref("");
+const editEmailError = ref("");
+const websiteEditError = ref("");
+const editWebsiteError = ref("");
+
 // Computed property for save button
 const canSave = computed(() => {
     const hasRequiredFields = supplierForm.name.trim() &&
@@ -223,7 +347,23 @@ const canSave = computed(() => {
     return hasRequiredFields && hasValidWebsite;
 });
 
-const emailError = ref("");
+// Computed property for edit save button
+const canEditSave = computed(() => {
+    const hasRequiredFields = editForm.name.trim() &&
+        editForm.place.trim() &&
+        editForm.address.trim();
+
+    const hasValidWebsite = !editForm.website || isValidWebsite(editForm.website);
+
+    return hasRequiredFields && hasValidWebsite;
+});
+
+// Computed property for sorted suppliers
+const sortedSuppliers = computed(() => {
+    return [...suppliers.value].sort((a, b) => {
+        return a.name.localeCompare(b.name);
+    });
+});
 
 // Email validation function
 const isValidEmail = (email) => {
@@ -248,19 +388,55 @@ const validateEmail = () => {
     }
 };
 
+// Validate edit email on blur
+const validateEditEmail = () => {
+    if (!editForm.email) {
+        editEmailError.value = "";
+        return;
+    }
+
+    if (!isValidEmail(editForm.email)) {
+        editEmailError.value = "Please enter a valid email address (e.g., example@domain.com)";
+    } else {
+        editEmailError.value = "";
+    }
+};
+
 // Clear email error when user starts typing
 const clearEmailError = () => {
     if (emailError.value) {
         emailError.value = "";
     }
 };
+
+// Clear edit email error when user starts typing
+const clearEditEmailError = () => {
+    if (editEmailError.value) {
+        editEmailError.value = "";
+    }
+};
+
 const isValidWebsite = (url) => {
     if (!url) return true; // Empty is valid (optional field)
 
-    // Basic URL validation
+    // Check if URL starts with http:// or https://
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        return false;
+    }
+
+    // Basic URL validation with domain extension check
     try {
         const urlObj = new URL(url);
-        return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+        const hostname = urlObj.hostname;
+
+        // Check if hostname has a valid domain extension
+        // This regex checks for domain with at least 2 characters after the last dot
+        const domainRegex = /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$/;
+
+        // Remove 'www.' if present and check the domain
+        const cleanHostname = hostname.replace(/^www\./, '');
+
+        return domainRegex.test(cleanHostname);
     } catch {
         return false;
     }
@@ -280,10 +456,31 @@ const validateWebsite = () => {
     }
 };
 
+// Validate edit website on blur
+const validateEditWebsite = () => {
+    if (!editForm.website) {
+        editWebsiteError.value = "";
+        return;
+    }
+
+    if (!isValidWebsite(editForm.website)) {
+        editWebsiteError.value = "Please enter a valid website URL (e.g., https://example.com)";
+    } else {
+        editWebsiteError.value = "";
+    }
+};
+
 // Clear website error when user starts typing
 const clearWebsiteError = () => {
     if (websiteError.value) {
         websiteError.value = "";
+    }
+};
+
+// Clear edit website error when user starts typing
+const clearEditWebsiteError = () => {
+    if (editWebsiteError.value) {
+        editWebsiteError.value = "";
     }
 };
 
@@ -361,7 +558,87 @@ const saveSupplier = async () => {
     }
 };
 
-// Edit supplier
+// Open edit popup
+const openEditPopup = (supplier) => {
+    showEditPopup.value = true;
+    editingId.value = supplier.id;
+
+    // Fill edit form with supplier data
+    editForm.name = supplier.name;
+    editForm.email = supplier.email || "";
+    editForm.contact_number = supplier.contact_number || "";
+    editForm.company_name = supplier.company_name || "";
+    editForm.website = supplier.website || "";
+    editForm.note = supplier.note || "";
+    editForm.status = supplier.status;
+    editForm.gst_number = supplier.gst_number || "";
+    editForm.place = supplier.place || "";
+    editForm.address = supplier.address || "";
+
+    // Clear any existing errors
+    editEmailError.value = "";
+    editWebsiteError.value = "";
+};
+
+// Close edit popup
+const closeEditPopup = () => {
+    showEditPopup.value = false;
+    editingId.value = null;
+};
+
+// Update supplier from popup
+const updateSupplier = async () => {
+    if (!editForm.name.trim()) {
+        alert("Please enter supplier name!");
+        return;
+    }
+
+    if (!editForm.place.trim()) {
+        alert("Please enter supplier place!");
+        return;
+    }
+
+    if (!editForm.address.trim()) {
+        alert("Please enter supplier address!");
+        return;
+    }
+
+    // Final website validation before saving
+    if (editForm.website && !isValidWebsite(editForm.website)) {
+        editWebsiteError.value = "Please enter a valid website URL (e.g., https://example.com)";
+        alert("Please fix the website URL before saving!");
+        return;
+    }
+
+    try {
+        const supplierData = {
+            name: editForm.name.trim(),
+            email: editForm.email.trim() || null,
+            contact_number: editForm.contact_number.trim() || null,
+            company_name: editForm.company_name.trim() || null,
+            website: editForm.website.trim() || null,
+            note: editForm.note.trim() || null,
+            status: editForm.status,
+            gst_number: editForm.gst_number.trim() || null,
+            place: editForm.place.trim(),
+            address: editForm.address.trim()
+        };
+
+        // Update existing supplier
+        await axios.put(`/suppliers/${editingId.value}/`, supplierData);
+        alert("Supplier updated successfully!");
+
+        // Close popup and reload suppliers
+        closeEditPopup();
+        await loadSuppliers();
+
+    } catch (error) {
+        console.error("Error updating supplier:", error);
+        alert("Error updating supplier!");
+    }
+};
+
+// Edit supplier (for the main form)
 const editSupplier = (supplier) => {
     isEditing.value = true;
     editingId.value = supplier.id;
@@ -786,6 +1063,80 @@ const resetForm = () => {
     opacity: 0.7;
 }
 
+/* Popup Styles */
+.popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.popup-content {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    width: 100%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #f8f9fa;
+    border-radius: 8px 8px 0 0;
+}
+
+.popup-header h3 {
+    margin: 0;
+    color: #333;
+    font-size: 1.3rem;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+    padding: 5px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.close-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.popup-body {
+    padding: 25px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.popup-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 20px 25px;
+    border-top: 1px solid #e0e0e0;
+    background: #f8f9fa;
+    border-radius: 0 0 8px 8px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .form-row {
@@ -838,6 +1189,19 @@ const resetForm = () => {
     .place-cell,
     .website-cell {
         max-width: 120px;
+    }
+
+    .popup-content {
+        width: 95%;
+        max-height: 95vh;
+    }
+
+    .popup-body {
+        padding: 15px;
+    }
+
+    .popup-footer {
+        flex-direction: column;
     }
 }
 </style>

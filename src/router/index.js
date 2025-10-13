@@ -16,6 +16,7 @@ import Suppliers from '../pages/SuppliersPage.vue'
 import Database from '../pages/Database.vue'
 import Auditlogs from '../pages/Auditlogs.vue'
 import PackingSlipeditable from '../pages/PackingSlipeditable.vue'
+import ListOfStockBySuppliers from '../pages/child/ListOfStock-iteamsBySupplier.vue'
 
 const routes = [
   { path: '/login', component: LoginPage },
@@ -35,6 +36,7 @@ const routes = [
   { path: '/databasebackup', component: Database },
   { path: '/auditlogs', component: Auditlogs },
   { path: '/packingslipeditable', component: PackingSlipeditable },
+  { path: '/stockbysuppliers', component: ListOfStockBySuppliers },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })
