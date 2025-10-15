@@ -11,10 +11,12 @@
         <!-- Menu -->
         <nav class="menu">
             <div class="menu-content">
+                <!-- DASH BOARD -->
                 <router-link to="/home" class="menu-item" active-class="active">
                     📊 Dashboard
                 </router-link>
 
+                <!-- PEOPLE -->
                 <div class="menu-section">People</div>
                 <router-link to="/customers" class="menu-item" active-class="active">
                     👤 Customers
@@ -23,6 +25,37 @@
                     🏭 Suppliers
                 </router-link>
 
+                <!-- PACKING SLIP -->
+                <div class="menu-section">Packing Slip</div>
+                <router-link to="/packingslip" class="menu-item submenu-item" active-class="active">
+                    ➕ Add Packing Slip
+                </router-link>
+                <router-link to="/viewpackingslips" class="menu-item submenu-item" active-class="active">
+                    👁️ View Packing Slip
+                </router-link>
+
+                <!-- PURCHASE (STOCK) -->
+                <div class="menu-section">Purchase (Stock)</div>
+                <router-link to="/addstock" class="menu-item submenu-item" active-class="active">
+                    ➕ Add Stock
+                </router-link>
+                <router-link to="/stockbysuppliers" class="menu-item submenu-item" active-class="active">
+                    👁️ View Stock
+                </router-link>
+
+                <!-- INVENTORY -->
+                <div class="menu-section">Inventory</div>
+                <router-link to="/stock-items" class="menu-item" active-class="active">
+                    📂 Inventory
+                </router-link>
+
+                <!-- REPORTS -->
+                <div class="menu-section">Reports</div>
+                <router-link to="/reports" class="menu-item" active-class="active">
+                    📑 Reports
+                </router-link>
+
+                <!-- PRODUCT SETUP -->
                 <div class="menu-section">Product Setup</div>
                 <router-link to="/products" class="menu-item" active-class="active">
                     📦 Products
@@ -34,39 +67,13 @@
                     📏 Sizes
                 </router-link>
 
-                <div class="menu-section">Inventory</div>
-                <router-link to="/stock-items" class="menu-item" active-class="active">
-                    📂 Inventory
-                </router-link>
-
-                <!-- Stocks Main Menu -->
-                <div class="menu-section">Stocks</div>
-                <router-link to="/addstock" class="menu-item submenu-item" active-class="active">
-                    ➕ Add Stock
-                </router-link>
-                <router-link to="/stockbysuppliers" class="menu-item submenu-item" active-class="active">
-                    👁️ View Stock
-                </router-link>
-
-                <!-- Packing Slip Main Menu -->
-                <div class="menu-section">Packing Slip</div>
-                <router-link to="/packingslip" class="menu-item submenu-item" active-class="active">
-                    ➕ Add Packing Slip
-                </router-link>
-                <router-link to="/viewpackingslips" class="menu-item submenu-item" active-class="active">
-                    👁️ View Packing Slip
-                </router-link>
-
+                <!-- ACTIVITIES -->
                 <div class="menu-section">Activities</div>
                 <router-link to="/stock-movements" class="menu-item" active-class="active">
                     🔁 Stock Movements
                 </router-link>
 
-                <div class="menu-section">Reports</div>
-                <router-link to="/reports" class="menu-item" active-class="active">
-                    📑 Reports
-                </router-link>
-
+                <!-- ADMIN -->
                 <div class="menu-section">Admin</div>
                 <router-link to="/databasebackup" class="menu-item" active-class="active">
                     💾 DataBase Backup
