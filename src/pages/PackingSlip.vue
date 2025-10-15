@@ -1121,12 +1121,11 @@ const createPackingSlip = async () => {
             const lastNumber = parseInt(response.data.last_slip_number);
             slipNumber = `${lastNumber + 1}`;
         } else {
-            throw new Error("No last slip number found in response");
+            slipNumber = '1001'; // Start from 1001 if no slips exist
         }
     } catch (error) {
-        // If API fails, show the error and don't proceed
-        console.error('Failed to get last slip number:', error);
-        throw new Error(`Cannot generate slip number: ${error.message}`);
+        // If API fails, start from 1001
+        slipNumber = '1001';
     }
 
     const today = new Date().toISOString().split('T')[0];
