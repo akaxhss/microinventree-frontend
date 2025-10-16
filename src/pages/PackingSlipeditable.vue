@@ -68,7 +68,7 @@
                                     <td>
                                         <!-- Make product editable for new rows, read-only for existing rows -->
                                         <div v-if="item.lineId" class="readonly-field">{{ getProductName(item.productId)
-                                        }}</div>
+                                            }}</div>
                                         <el-select v-else v-model="item.productId" @change="onProductChange(idx)"
                                             filterable placeholder="Select Product" class="w-full" :disabled="loading"
                                             clearable>
@@ -575,7 +575,7 @@ const updateAvailableQuantity = (idx) => {
             // Show actual available stock in the Available column (5)
             item.availableStock = matchingStock.available_quantity;
 
-            // In edit mode: available stock already EXCLUDES the current packing slip quantity
+
             // So max allowed = current quantity + available stock - 1
             const currentQuantityInThisRow = item.quantity || 0;
             item.maxQuantity = currentQuantityInThisRow + matchingStock.available_quantity - 1;
