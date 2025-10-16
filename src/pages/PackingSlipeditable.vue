@@ -115,7 +115,7 @@
                                             class="quantity-input" @input="validateQuantity(idx)" :disabled="loading" />
                                     </td>
                                     <td class="available-col">
-                                        <span class="available-qty">{{ item.maxQuantity }}</span>
+                                        <span class="available-qty">{{ item.availableStock }}</span>
                                     </td>
                                     <td class="action-col">
                                         <button class="btn danger" @click="removeItem(idx)"
@@ -227,7 +227,7 @@ const sortedAvailableSizes = (sizes) => {
     });
 };
 
-// Get available colors for a specific row allow multiple same colors but filter based on product
+// Get available colors for a specific row (allow multiple same colors but filter based on product)
 const getAvailableColors = (currentIndex) => {
     const currentItem = packingItems.value[currentIndex];
     if (!currentItem.productId || !currentItem.availableColors) {
@@ -237,7 +237,7 @@ const getAvailableColors = (currentIndex) => {
     return sortedAvailableColors(currentItem.availableColors || []);
 };
 
-// Get available sizes for a specific row prevent duplicate sizes for same product-color combo
+// Get available sizes for a specific row (prevent duplicate sizes for same product-color combo)
 const getAvailableSizes = (currentIndex) => {
     const currentItem = packingItems.value[currentIndex];
     if (!currentItem.productId || !currentItem.colorId || !currentItem.availableSizes) {
@@ -297,7 +297,7 @@ const getProductName = (productId) => {
 // Create empty item
 function createEmptyItem() {
     return {
-        lineId: null,
+        lineId: null, // null for new rows
         productId: "",
         colorId: "",
         sizeId: "",
@@ -306,7 +306,8 @@ function createEmptyItem() {
         availableColors: [],
         availableSizes: [],
         stockData: [],
-        colorStockData: []
+        colorStockData: [],
+        availableStock: 0,
     };
 }
 
@@ -571,20 +572,28 @@ const updateAvailableQuantity = (idx) => {
         );
 
         if (matchingStock) {
-            item.maxQuantity = matchingStock.available_quantity;
+            // Show actual available stock in the Available column (5)
+            item.availableStock = matchingStock.available_quantity;
 
+            // In edit mode: available stock already EXCLUDES the current packing slip quantity
+            // So max allowed = current quantity + available stock - 1
+            const currentQuantityInThisRow = item.quantity || 0;
+            item.maxQuantity = currentQuantityInThisRow + matchingStock.available_quantity - 1;
+
+            // Ensure quantity doesn't exceed the new max
             if (item.quantity > item.maxQuantity) {
                 item.quantity = item.maxQuantity;
             }
         } else {
+            item.availableStock = 0;
             item.maxQuantity = 0;
             item.quantity = 0;
         }
     } else {
+        item.availableStock = 0;
         item.maxQuantity = 0;
     }
 };
-
 const validateQuantity = (idx) => {
     const item = packingItems.value[idx];
     if (item.quantity > item.maxQuantity) {
