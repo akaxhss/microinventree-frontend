@@ -1,9 +1,7 @@
 <template>
     <div class="layout">
-        <!-- Sidebar -->
         <Sidebar />
 
-        <!-- Main Content -->
         <div class="main-content">
             <ModernHeader />
 
@@ -19,19 +17,18 @@
                     </div>
                 </div>
 
-                <!-- Draft Management -->
+                <!-- Draft Banner -->
                 <div class="draft-banner" v-if="hasDraft">
                     <div class="draft-info">
                         <span>📋 Draft found from {{ formatDate(draftTimestamp) }}</span>
                         <div class="draft-actions">
                             <button class="btn draft-load" @click="loadDraft" :disabled="loading">🔄 Load Draft</button>
-                            <button class="btn draft-discard" @click="discardDraft" :disabled="loading">🗑️
-                                Discard</button>
+                            <button class="btn draft-discard" @click="discardDraft" :disabled="loading">🗑️ Discard</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Supplier Selection -->
+                <!-- Supplier -->
                 <div class="form-row">
                     <div class="form-group">
                         <label>Supplier</label>
@@ -43,7 +40,7 @@
                     </div>
                 </div>
 
-                <!-- Stock Items Table -->
+                <!-- Stock Table -->
                 <div class="table-wrapper">
                     <table class="stock-table">
                         <thead>
@@ -102,22 +99,30 @@
                     </table>
                 </div>
 
-                <!-- Save/Reset Buttons -->
+                <!-- 🧾 Invoice Section -->
+                <div class="form-row invoice-section">
+                    <div class="form-group">
+                        <label>Invoice Number <span class="required">*</span></label>
+                        <input type="text" v-model="invoiceNumber" placeholder="Enter Invoice Number"
+                            class="invoice-input" :disabled="loading" />
+                    </div>
+                    <div class="form-group">
+                        <label>Invoice Date <span class="required">*</span></label>
+                        <input type="date" v-model="invoiceDate" class="invoice-input" :disabled="loading" />
+                    </div>
+                </div>
+
+                <!-- Buttons -->
                 <div class="form-actions">
                     <button class="btn draft" @click="manualSaveDraft" :disabled="!hasFormData || loading">💾 Save
                         Draft</button>
-                    <button class="btn save" @click="saveStock" :disabled="!canSave || loading">
+                    <button class="btn save" @click="saveStock" :disabled="!canSave || loading || !invoiceNumber || !invoiceDate">
                         <span v-if="loading">⏳ Saving...</span>
                         <span v-else>Save to Database</span>
                     </button>
                     <button class="btn reset" @click="resetForm" :disabled="loading">🔄 Reset</button>
                 </div>
             </div>
-
-            <!-- Products Report View -->
-            <!-- <div class="list-container">
-                <ReportsOfProducts />
-            </div> -->
         </div>
     </div>
 </template>
@@ -127,400 +132,271 @@ import { ref, computed, onMounted, watch, nextTick } from "vue";
 import axios from "../plugins/axios.js";
 import Sidebar from "../components/Sidebar.vue";
 import ModernHeader from "../components/header.vue";
-//import ReportsOfProducts from "./child/ListOfStock-iteamsBySupplier.vue";
-
-// Element Plus components
 import { ElSelect, ElOption } from 'element-plus';
 import 'element-plus/dist/index.css';
 
-// Form State
+// ---- FORM STATE ----
 const selectedSupplier = ref("");
+const invoiceNumber = ref("");
+const invoiceDate = ref("");
 
-// Data
+// ---- DATA ----
 const suppliers = ref([]);
 const products = ref([]);
 const sizes = ref([]);
 const colors = ref([]);
 const stockItems = ref([createEmptyItem()]);
 
-// Loading state
+// ---- STATE ----
 const loading = ref(false);
-
-// Draft Management
 const draftTimestamp = ref(null);
-const DRAFT_KEY = 'stock_form_draft';
-const AUTO_SAVE_DELAY = 2000; // 2 seconds
+const DRAFT_KEY = "stock_form_draft";
+const AUTO_SAVE_DELAY = 2000;
 let autoSaveTimeout = null;
 
-// Computed properties for sorted data
-const sortedSuppliers = computed(() => {
-    return [...suppliers.value].sort((a, b) => a.name.localeCompare(b.name));
-});
-
-const sortedProducts = computed(() => {
-    return [...products.value].sort((a, b) => a.name.localeCompare(b.name));
-});
-
+// ---- COMPUTED ----
+const sortedSuppliers = computed(() => [...suppliers.value].sort((a, b) => a.name.localeCompare(b.name)));
+const sortedProducts = computed(() => [...products.value].sort((a, b) => a.name.localeCompare(b.name)));
 const sortedSizes = computed(() => {
-    // Define custom size order for better sorting
-    const sizeOrder = { 'S': 1, 'M': 2, 'L': 3, 'XL': 4, 'XXL': 5, 'XXXL': 6 };
-    return [...sizes.value].sort((a, b) => {
-        const orderA = sizeOrder[a.display_name] || 999;
-        const orderB = sizeOrder[b.display_name] || 999;
-        return orderA - orderB;
-    });
+    const order = { S: 1, M: 2, L: 3, XL: 4, XXL: 5, XXXL: 6 };
+    return [...sizes.value].sort((a, b) => (order[a.display_name] || 999) - (order[b.display_name] || 999));
 });
+const sortedColors = computed(() => [...colors.value].sort((a, b) => a.name.localeCompare(b.name)));
+const totalQuantity = computed(() => stockItems.value.reduce((sum, i) => sum + (parseInt(i.quantity) || 0), 0));
 
-const sortedColors = computed(() => {
-    return [...colors.value].sort((a, b) => a.name.localeCompare(b.name));
-});
-
-const totalQuantity = computed(() =>
-    stockItems.value.reduce((sum, i) => sum + (parseInt(i.quantity) || 0), 0)
-);
-
-// Check if last row is complete (all fields filled)
 const isLastRowComplete = computed(() => {
-    const lastItem = stockItems.value[stockItems.value.length - 1];
-    return lastItem.productId && lastItem.sizeId && lastItem.colorId && lastItem.quantity > 0;
+    const last = stockItems.value[stockItems.value.length - 1];
+    return last.productId && last.sizeId && last.colorId && last.quantity > 0;
 });
 
 const canSave = computed(() => {
-    // Check if supplier is selected
     if (!selectedSupplier.value) return false;
-
-    // Only consider rows that have actual data (not empty rows)
-    const validRows = stockItems.value.filter(item =>
-        item.productId && item.sizeId && item.colorId && item.quantity > 0
+    const valid = stockItems.value.filter(i => i.productId && i.sizeId && i.colorId && i.quantity > 0);
+    if (!valid.length) return false;
+    const incomplete = stockItems.value.some(i =>
+        (i.productId || i.sizeId || i.colorId || i.quantity > 0) &&
+        (!i.productId || !i.sizeId || !i.colorId || i.quantity === 0)
     );
-
-    // Must have at least one valid row
-    if (validRows.length === 0) return false;
-
-    // Check if there are any incomplete rows that have started but not finished
-    const hasIncompleteRows = stockItems.value.some(item =>
-        // A row is incomplete if it has any field filled but not all required fields
-        (item.productId || item.sizeId || item.colorId || item.quantity > 0) &&
-        (!item.productId || !item.sizeId || !item.colorId || item.quantity === 0)
-    );
-
-    // If there are incomplete rows, disable save
-    if (hasIncompleteRows) return false;
-
-    return true;
+    return !incomplete;
 });
 
-const hasFormData = computed(() => {
-    return selectedSupplier.value || stockItems.value.some(item =>
-        item.productId && item.sizeId && item.colorId && item.quantity > 0
-    );
-});
+const hasFormData = computed(() =>
+    selectedSupplier.value ||
+    stockItems.value.some(i => i.productId && i.sizeId && i.colorId && i.quantity > 0) ||
+    invoiceNumber.value || invoiceDate.value
+);
 
-const hasDraft = computed(() => {
-    return localStorage.getItem(DRAFT_KEY) !== null;
-});
+const hasDraft = computed(() => localStorage.getItem(DRAFT_KEY) !== null);
 
-// Create empty item
+// ---- HELPERS ----
 function createEmptyItem() {
-    return {
-        productId: "",
-        sizeId: "",
-        colorId: "",
-        quantity: 0
-    };
+    return { productId: "", sizeId: "", colorId: "", quantity: 0 };
 }
 
-// Draft Management Functions
+// ---- DRAFT ----
 const saveDraft = () => {
-    // Only save valid rows to draft
-    const validItems = stockItems.value.filter(item =>
-        item.productId && item.sizeId && item.colorId && item.quantity > 0
-    );
-
-    const draftData = {
+    const validItems = stockItems.value.filter(i => i.productId && i.sizeId && i.colorId && i.quantity > 0);
+    const draft = {
         selectedSupplier: selectedSupplier.value,
-        stockItems: validItems.length > 0 ? validItems.map(item => ({
-            productId: item.productId,
-            sizeId: item.sizeId,
-            colorId: item.colorId,
-            quantity: item.quantity
-        })) : [],
-        timestamp: new Date().toISOString()
+        invoiceNumber: invoiceNumber.value,
+        invoiceDate: invoiceDate.value,
+        stockItems: validItems.map(i => ({ ...i })),
+        timestamp: new Date().toISOString(),
     };
-
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
-    draftTimestamp.value = draftData.timestamp;
-
-    console.log('Stock draft saved successfully');
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    draftTimestamp.value = draft.timestamp;
 };
 
 const loadDraft = () => {
-    try {
-        const draftData = JSON.parse(localStorage.getItem(DRAFT_KEY));
-        if (draftData) {
-            selectedSupplier.value = draftData.selectedSupplier || "";
+    const draft = JSON.parse(localStorage.getItem(DRAFT_KEY));
+    if (!draft) return;
 
-            // Restore basic item data - ensure we have at least one row
-            if (draftData.stockItems && draftData.stockItems.length > 0) {
-                stockItems.value = draftData.stockItems.map(itemData => ({
-                    ...createEmptyItem(),
-                    ...itemData
-                }));
-            } else {
-                stockItems.value = [createEmptyItem()];
-            }
+    selectedSupplier.value = draft.selectedSupplier || "";
+    invoiceNumber.value = draft.invoiceNumber || "";
+    invoiceDate.value = draft.invoiceDate || "";
 
-            draftTimestamp.value = draftData.timestamp;
+    // Restore saved items
+    stockItems.value = draft.stockItems?.length ? draft.stockItems.map(item => ({ ...item })) : [createEmptyItem()];
 
-            alert('Draft loaded successfully!');
-        }
-    } catch (error) {
-        console.error('Error loading draft:', error);
-        alert('Error loading draft. The draft data might be corrupted.');
+   
+    if (stockItems.value.length === 0 || isLastRowComplete.value) {
+        stockItems.value.push(createEmptyItem());
     }
+
+    draftTimestamp.value = draft.timestamp;
+    alert("Draft loaded successfully!");
 };
 
+
 const discardDraft = () => {
-    if (confirm('Are you sure you want to discard the saved draft? This action cannot be undone.')) {
+    if (confirm("Discard the saved draft?")) {
         localStorage.removeItem(DRAFT_KEY);
         draftTimestamp.value = null;
-        alert('Draft discarded successfully!');
     }
 };
 
 const autoSaveDraft = () => {
-    // Clear existing timeout
-    if (autoSaveTimeout) {
-        clearTimeout(autoSaveTimeout);
+    clearTimeout(autoSaveTimeout);
+    if (hasFormData.value) {
+        autoSaveTimeout = setTimeout(saveDraft, AUTO_SAVE_DELAY);
     }
-
-    // Set new timeout for auto-save
-    autoSaveTimeout = setTimeout(() => {
-        if (hasFormData.value) {
-            saveDraft();
-        }
-    }, AUTO_SAVE_DELAY);
 };
 
 const manualSaveDraft = () => {
     if (hasFormData.value) {
         saveDraft();
-        alert('Draft saved successfully!');
-    } else {
-        alert('No form data to save as draft.');
-    }
+        alert("Draft saved successfully!");
+    } else alert("No data to save.");
 };
 
-const clearDraft = () => {
-    localStorage.removeItem(DRAFT_KEY);
-    draftTimestamp.value = null;
-};
+const clearDraft = () => localStorage.removeItem(DRAFT_KEY);
 
-// Watch for changes to auto-save - Only save when there's actual form data
-watch([selectedSupplier, stockItems], () => {
-    const hasRealData = selectedSupplier.value || stockItems.value.some(item =>
-        item.productId && item.sizeId && item.colorId && item.quantity > 0
-    );
-
-    if (hasRealData) {
-        autoSaveDraft();
-    }
-}, { deep: true });
-
-// API Calls
+// ---- API ----
 onMounted(async () => {
-    await Promise.all([
-        loadSuppliers(),
-        loadProducts(),
-        loadSizes(),
-        loadColors()
-    ]);
-
-    // Check for existing draft on component mount
-    checkForDraft();
+    await Promise.all([loadSuppliers(), loadProducts(), loadSizes(), loadColors()]);
+    const draft = localStorage.getItem(DRAFT_KEY);
+    if (draft) draftTimestamp.value = JSON.parse(draft).timestamp;
 });
 
-const checkForDraft = () => {
-    if (hasDraft.value) {
-        try {
-            const draftData = JSON.parse(localStorage.getItem(DRAFT_KEY));
-            draftTimestamp.value = draftData.timestamp;
-
-        } catch (error) {
-            console.error('Error checking draft:', error);
-            // If draft is corrupted, remove it
-            localStorage.removeItem(DRAFT_KEY);
-        }
-    }
-};
+watch([selectedSupplier, stockItems, invoiceNumber, invoiceDate], autoSaveDraft, { deep: true });
 
 const loadSuppliers = async () => {
     try {
         const res = await axios.get("/suppliers/");
         suppliers.value = res.data;
-    } catch (error) {
-        console.error("Error loading suppliers:", error);
-    }
+    } catch (e) { console.error(e); }
 };
-
 const loadProducts = async () => {
     try {
         const res = await axios.get("/products/");
         products.value = res.data;
-    } catch (error) {
-        console.error("Error loading products:", error);
-    }
+    } catch (e) { console.error(e); }
 };
-
 const loadSizes = async () => {
     try {
         const res = await axios.get("/sizes/");
         sizes.value = res.data;
-    } catch (error) {
-        console.error("Error loading sizes:", error);
-    }
+    } catch (e) { console.error(e); }
 };
-
 const loadColors = async () => {
     try {
         const res = await axios.get("/colors/");
         colors.value = res.data;
-    } catch (error) {
-        console.error("Error loading colors:", error);
-    }
+    } catch (e) { console.error(e); }
 };
 
-// Product change handler
-const onProductChange = (idx) => {
-    console.log(`Product changed for row ${idx + 1}`);
-
-    // Auto-add new row if this is the last row and product is selected
-    const currentItem = stockItems.value[idx];
-    if (idx === stockItems.value.length - 1 && currentItem.productId) {
-        // Wait a bit for the current selection to settle, then add new row
-        setTimeout(() => {
-            addNewRow();
-        }, 300);
-    }
+// ---- EVENTS ----
+const onProductChange = (i) => {
+    if (i === stockItems.value.length - 1 && stockItems.value[i].productId) setTimeout(addNewRow, 300);
 };
-
-// Color change handler with automatic row addition
-const onColorChange = (idx) => {
-    // If this is the last row and all fields are filled, add a new row
-    const currentItem = stockItems.value[idx];
-    if (idx === stockItems.value.length - 1 &&
-        currentItem.productId &&
-        currentItem.sizeId &&
-        currentItem.colorId &&
-        currentItem.quantity > 0) {
-
-        // Wait a bit for the current selection to settle, then add new row
-        setTimeout(() => {
-            addNewRow();
-        }, 300);
-    }
+const onColorChange = (i) => {
+    const it = stockItems.value[i];
+    if (i === stockItems.value.length - 1 && it.productId && it.sizeId && it.colorId && it.quantity > 0)
+        setTimeout(addNewRow, 300);
 };
-
-// Add new row
 const addNewRow = () => {
-    // Only add new row if the last row is not empty
-    const lastItem = stockItems.value[stockItems.value.length - 1];
-    if (lastItem.productId || lastItem.sizeId || lastItem.colorId || lastItem.quantity > 0) {
+    const last = stockItems.value[stockItems.value.length - 1];
+    if (last.productId || last.sizeId || last.colorId || last.quantity > 0)
         stockItems.value.push(createEmptyItem());
-
-        // Scroll to the new row
-        nextTick(() => {
-            const tableWrapper = document.querySelector('.table-wrapper');
-            if (tableWrapper) {
-                tableWrapper.scrollTop = tableWrapper.scrollHeight;
-            }
-        });
-    } else {
-        console.log('Not adding new row - last row is empty');
-    }
 };
+const removeItem = (i) => stockItems.value.length > 1 ? stockItems.value.splice(i, 1) : stockItems.value[0] = createEmptyItem();
+const validateQuantity = (i) => { if (stockItems.value[i].quantity < 0) stockItems.value[i].quantity = 0; };
+const formatDate = (d) => d ? new Date(d).toLocaleString() : "";
 
-// Remove item
-const removeItem = (idx) => {
-    if (stockItems.value.length > 1) {
-        stockItems.value.splice(idx, 1);
-    } else {
-        // If it's the last row, just reset it
-        stockItems.value[0] = createEmptyItem();
-    }
-};
-
-// Validate quantity
-const validateQuantity = (idx) => {
-    const item = stockItems.value[idx];
-    if (item.quantity < 0) {
-        item.quantity = 0;
-    }
-};
-
-// Format date for display
-const formatDate = (dateString) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleString();
-};
-
-// Save Stock - Only send valid rows
+// ---- SAVE STOCK ----
 const saveStock = async () => {
-    if (!canSave.value) {
-        alert("Please fill all required fields!");
+    if (!canSave.value || !invoiceNumber.value || !invoiceDate.value) {
+        alert("Please fill all fields including invoice details!");
         return;
     }
-
     loading.value = true;
     try {
-        // Filter only valid rows (with all fields filled and quantity > 0)
-        const validItems = stockItems.value.filter(item =>
-            item.productId && item.sizeId && item.colorId && item.quantity > 0
-        );
-
-        console.log('Saving valid items:', validItems);
-
-        if (validItems.length === 0) {
-            alert("No valid items to save!");
-            return;
-        }
-
-        // Send only valid items to the API
-        const promises = validItems.map(item =>
+        const valid = stockItems.value.filter(i => i.productId && i.sizeId && i.colorId && i.quantity > 0);
+        const promises = valid.map(i =>
             axios.post("/addstock/", {
-                product_id: item.productId,
-                color_id: item.colorId,
-                size_id: item.sizeId,
+                product_id: i.productId,
+                color_id: i.colorId,
+                size_id: i.sizeId,
                 supplier_id: selectedSupplier.value,
-                quantity: item.quantity
+                quantity: i.quantity,
+                invoice_number: invoiceNumber.value,
+                invoice_date: invoiceDate.value,
             })
         );
-
         await Promise.all(promises);
-
-        // Clear draft after successful save
         clearDraft();
-
-        alert(`Stock added successfully! ${validItems.length} item(s) saved.`);
+        alert(`Stock added successfully! ${valid.length} item(s) saved.`);
         resetForm();
     } catch (err) {
-        console.error("Error saving stock:", err);
-        alert("Error adding stock! Please check the console for details.");
+        console.error(err);
+        alert("Error adding stock!");
     } finally {
         loading.value = false;
     }
 };
 
-// Reset form
 const resetForm = () => {
-    if (confirm('Are you sure you want to reset the form? Any unsaved changes will be lost.')) {
+    if (confirm("Reset form? Unsaved changes will be lost.")) {
         selectedSupplier.value = "";
+        invoiceNumber.value = "";
+        invoiceDate.value = "";
         stockItems.value = [createEmptyItem()];
     }
 };
 </script>
 
+
 <style scoped>
+.invoice-section {
+    display: flex;
+    justify-content: flex-start;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin: 15px 0 25px 0;
+    background: #f9fafb;
+    padding: 12px 15px;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    max-width: 100%;
+}
+
+.invoice-section .form-group {
+    flex: none;
+    width: 550px; 
+    display: flex;
+    flex-direction: column;
+}
+
+.invoice-section label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+    color: #444;
+}
+
+.invoice-input {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 0.85rem;
+    width: 100%;
+    height: 34px;
+    background-color: #fff;
+    transition: all 0.2s ease;
+}
+
+.invoice-input:focus {
+    outline: none;
+    border-color: #409eff;
+    box-shadow: 0 0 4px rgba(64, 158, 255, 0.3);
+}
+
+.required {
+    color: red;
+    font-weight: bold;
+}
+
 .list-container {
     background: #fff;
     padding: 25px;

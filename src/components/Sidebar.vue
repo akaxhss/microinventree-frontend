@@ -34,14 +34,20 @@
                     👁️ View Packing Slip
                 </router-link>
 
-                <!-- PURCHASE (STOCK) -->
-                <div class="menu-section">Purchase (Stock)</div>
-                <router-link to="/addstock" class="menu-item submenu-item" active-class="active">
-                    ➕ Add Stock
-                </router-link>
-                <router-link to="/stockbysuppliers" class="menu-item submenu-item" active-class="active">
-                    👁️ View Stock
-                </router-link>
+               <!-- PURCHASE (STOCK) -->
+<div class="menu-section">Purchase (Stock)</div>
+<router-link to="/addstock" class="menu-item submenu-item" active-class="active">
+    ➕ Add Stock
+</router-link>
+<router-link to="/stockbysuppliers" class="menu-item submenu-item" active-class="active">
+    👁️ View Stock
+</router-link>
+<router-link to="/viewstockbyinvoice" class="menu-item submenu-item" active-class="active">
+    📋 View Stock by Invoice
+</router-link>
+<router-link to="/editsockbyinvoice" class="menu-item submenu-item" active-class="active">
+    ✏️ Edit Stock by Invoice
+</router-link>
 
                 <!-- INVENTORY -->
                 <div class="menu-section">Inventory</div>

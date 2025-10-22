@@ -18,6 +18,11 @@ import Auditlogs from '../pages/Auditlogs.vue'
 import PackingSlipeditable from '../pages/PackingSlipeditable.vue'
 import ListOfStockBySuppliers from '../pages/child/ListOfStock-iteamsBySupplier.vue'
 import ViewPackingslips from '../pages/ViewPackingslip.vue'
+import ListOfStockByInvoice from '../pages/child/ListOfStock-iteamsByInvoiceNo.vue'
+import EditOfStockByInvoice from '../pages/child/EditStock-itemsByInvoice.vue'
+import ViewEditByInvoice from '../pages/View-Edit-ByInvoice.vue'
+
+
 
 const routes = [
   { path: '/login', component: LoginPage },
@@ -39,6 +44,9 @@ const routes = [
   { path: '/packingslipeditable', component: PackingSlipeditable },
   { path: '/stockbysuppliers', component: ListOfStockBySuppliers },
   { path: '/viewpackingslips', component: ViewPackingslips },
+  { path: '/viewstockbyinvoice', component: ListOfStockByInvoice },
+  { path: '/editsockbyinvoice', component: EditOfStockByInvoice },
+    { path: '/vieweditbyinvoice', component: ViewEditByInvoice },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })
