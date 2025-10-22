@@ -22,7 +22,7 @@
                             <label>Select or Type Invoice Number</label>
                             <el-select 
                                 v-model="invoiceNumber" 
-                                placeholder="Select from list or type any invoice number"
+                                placeholder="Shows only last 7 days in drop down. Otherwise type the Invoice No:"
                                 class="filter-select" 
                                 filterable 
                                 clearable
