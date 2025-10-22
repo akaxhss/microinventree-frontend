@@ -18,6 +18,65 @@
                         <h3>Search Invoice</h3>
                     </div>
                     <div class="filters-grid">
+                        <!-- Date Range Selection - Separate Pickers -->
+                        <div class="filter-group">
+                            <label>Select Date Range</label>
+                            <div class="separate-date-pickers">
+                                <div class="date-picker-group">
+                                    <label class="date-label">Start Date</label>
+                                    <el-date-picker
+                                        v-model="startDate"
+                                        type="date"
+                                        placeholder="Select start date"
+                                        format="DD/MM/YYYY"
+                                        value-format="YYYY-MM-DD"
+                                        @change="handleStartDateChange"
+                                        class="single-date-picker"
+                                        clearable
+                                    />
+                                </div>
+                                <div class="date-picker-group">
+                                    <label class="date-label">End Date</label>
+                                    <el-date-picker
+                                        v-model="endDate"
+                                        type="date"
+                                        placeholder="Select end date"
+                                        format="DD/MM/YYYY"
+                                        value-format="YYYY-MM-DD"
+                                        @change="handleEndDateChange"
+                                        :disabled="!startDate"
+                                        class="single-date-picker"
+                                        clearable
+                                    />
+                                </div>
+                                <div class="date-actions">
+                                    <el-button 
+                                        type="primary" 
+                                        @click="loadInvoicesByDate" 
+                                        :loading="loadingInvoices"
+                                        :disabled="!startDate"
+                                        class="search-date-btn"
+                                    >
+                                        Search Dates
+                                    </el-button>
+                                    <el-button 
+                                        @click="loadRecentInvoices" 
+                                        :loading="loadingInvoices"
+                                        class="recent-btn"
+                                    >
+                                        Show Recent
+                                    </el-button>
+                                    <el-button 
+                                        @click="clearDates" 
+                                        class="clear-btn"
+                                    >
+                                        Clear
+                                    </el-button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Invoice Selection with Virtual Scrolling -->
                         <div class="filter-group">
                             <label>Select or Type Invoice Number</label>
                             <el-select 
@@ -28,16 +87,21 @@
                                 clearable
                                 allow-create
                                 default-first-option
+                                remote
+                                :remote-method="searchInvoices"
+                                :loading="loadingInvoices"
                                 @change="fetchInvoiceStock"
-                                :loading="loading"
                             >
                                 <el-option 
-                                    v-for="invoice in recentInvoices" 
+                                    v-for="invoice in visibleInvoices" 
                                     :key="invoice.id"
-                                    :label="`${invoice.invoice_number} - ${invoice.supplier_name}(${invoice.supplier_location})`"
+                                    :label="`${invoice.invoice_number} - ${invoice.supplier_name}(${invoice.supplier_location}) - ${formatDate(invoice.invoice_date)}`"
                                     :value="invoice.invoice_number" 
                                 />
                             </el-select>
+                            <div class="dropdown-info" v-if="totalInvoices > visibleInvoices.length">
+                                Showing {{ visibleInvoices.length }} of {{ totalInvoices }} invoices
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -88,20 +152,20 @@
                         </div>
                     </div>
 
-                    Stock Items List
+                    <!-- Stock Items List -->
                     <div class="stock-items-section">
                         <div class="section-header">
                             <h3>Invoice Items ({{ invoiceData.items.length }})</h3>
-                            <!-- <div class="export-actions" v-if="invoiceData.items.length > 0">
-                                <el-button type="success" @click="exportExcel">
+                            <div class="export-actions" v-if="invoiceData.items.length > 0">
+                                <!-- <el-button type="success" @click="exportExcel">
                                     <i class="el-icon-download"></i>
                                     Export Excel
                                 </el-button>
                                 <el-button type="danger" @click="exportPDF">
                                     <i class="el-icon-document"></i>
                                     Export PDF
-                                </el-button>
-                            </div> -->
+                                </el-button> -->
+                            </div>
                         </div>
 
                         <div v-if="invoiceData.items.length === 0" class="empty-state">
@@ -184,7 +248,7 @@
                 <div v-else-if="!loading && !invoiceData" class="initial-state">
                     <div class="initial-icon">🔍</div>
                     <h3>Select or Type Invoice</h3>
-                    <p>Select an invoice from the dropdown or type any invoice number to view its items</p>
+                    <p>Select dates or use "Show Recent" to load invoices, then select an invoice to view</p>
                 </div>
 
                 <!-- Error State -->
@@ -208,14 +272,19 @@ import Sidebar from "../../components/Sidebar.vue";
 import ModernHeader from "../../components/header.vue";
 
 // Element Plus components
-import { ElSelect, ElOption, ElInput, ElButton } from 'element-plus';
+import { ElSelect, ElOption, ElInput, ElButton, ElDatePicker, ElMessage } from 'element-plus';
 
 // Data
 const invoiceData = ref(null);
 const invoiceNumber = ref("");
+const startDate = ref("");
+const endDate = ref("");
 const loading = ref(false);
+const loadingInvoices = ref(false);
 const errorMessage = ref("");
 const recentInvoices = ref([]);
+const dateFilteredInvoices = ref([]);
+const searchQuery = ref("");
 
 // Filters
 const filters = ref({
@@ -224,6 +293,9 @@ const filters = ref({
     size: '',
     quantity: ''
 });
+
+// Virtual scrolling constants
+const VISIBLE_LIMIT = 50;
 
 // Computed properties
 const filteredItems = computed(() => {
@@ -264,15 +336,113 @@ const filteredItems = computed(() => {
     });
 });
 
+const allInvoices = computed(() => {
+    return dateFilteredInvoices.value.length > 0 ? dateFilteredInvoices.value : recentInvoices.value;
+});
+
+const filteredInvoices = computed(() => {
+    if (!searchQuery.value) {
+        return allInvoices.value;
+    }
+    
+    const query = searchQuery.value.toLowerCase();
+    return allInvoices.value.filter(invoice => 
+        invoice.invoice_number.toLowerCase().includes(query) ||
+        invoice.supplier_name.toLowerCase().includes(query) ||
+        invoice.supplier_location.toLowerCase().includes(query)
+    );
+});
+
+const visibleInvoices = computed(() => {
+    // Virtual scrolling - only show limited items for performance
+    return filteredInvoices.value.slice(0, VISIBLE_LIMIT);
+});
+
+const totalInvoices = computed(() => {
+    return filteredInvoices.value.length;
+});
+
 // Methods
+const searchInvoices = (query) => {
+    searchQuery.value = query;
+};
+
+const handleStartDateChange = (date) => {
+    startDate.value = date;
+    // If end date is before start date, clear end date
+    if (endDate.value && new Date(endDate.value) < new Date(date)) {
+        endDate.value = "";
+    }
+};
+
+const handleEndDateChange = (date) => {
+    endDate.value = date;
+};
+
+const clearDates = () => {
+    startDate.value = "";
+    endDate.value = "";
+    dateFilteredInvoices.value = [];
+    ElMessage.info('Date filters cleared');
+};
+
 const loadRecentInvoices = async () => {
+    loadingInvoices.value = true;
+    startDate.value = "";
+    endDate.value = "";
+    searchQuery.value = "";
     try {
         const res = await axios.get('/purchase-history/recent/');
         if (res.data && res.data.results) {
             recentInvoices.value = res.data.results;
+            dateFilteredInvoices.value = [];
+            ElMessage.success(`Loaded ${res.data.results.length} recent invoices`);
         }
     } catch (error) {
         console.error("Error loading recent invoices:", error);
+        ElMessage.error('Error loading recent invoices');
+    } finally {
+        loadingInvoices.value = false;
+    }
+};
+
+const loadInvoicesByDate = async () => {
+    if (!startDate.value) {
+        ElMessage.warning('Please select a start date');
+        return;
+    }
+
+    loadingInvoices.value = true;
+    searchQuery.value = "";
+
+    try {
+        let url = '/purchase-history/filter/';
+        
+        if (!endDate.value || startDate.value === endDate.value) {
+            // Single date
+            url += `?date=${startDate.value}`;
+        } else {
+            // Date range
+            url += `?start_date=${startDate.value}&end_date=${endDate.value}`;
+        }
+
+        const res = await axios.get(url);
+        if (res.data && res.data.results) {
+            dateFilteredInvoices.value = res.data.results;
+            const dateText = !endDate.value || startDate.value === endDate.value 
+                ? `date ${formatDate(startDate.value)}` 
+                : `date range ${formatDate(startDate.value)} to ${formatDate(endDate.value)}`;
+            ElMessage.success(`Found ${res.data.results.length} invoices for ${dateText}`);
+        } else {
+            dateFilteredInvoices.value = [];
+            ElMessage.info('No invoices found for selected dates');
+        }
+    } catch (error) {
+        console.error("Error loading invoices by date:", error);
+        ElMessage.error('Error loading invoices for selected dates');
+        dateFilteredInvoices.value = [];
+    } finally {
+        loadingInvoices.value = false;
     }
 };
 
@@ -470,6 +640,12 @@ onMounted(() => {
     font-size: 1.2rem;
 }
 
+.filters-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
 .filter-group {
     display: flex;
     flex-direction: column;
@@ -481,8 +657,50 @@ onMounted(() => {
     color: #555;
 }
 
+/* Separate Date Pickers Styles */
+.separate-date-pickers {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.date-picker-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.date-label {
+    font-weight: 500;
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.single-date-picker {
+    width: 100%;
+}
+
+.date-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.search-date-btn,
+.recent-btn,
+.clear-btn {
+    flex: 1;
+}
+
 .filter-select {
     width: 100%;
+}
+
+.dropdown-info {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 4px;
+    text-align: right;
 }
 
 .loading-overlay {
@@ -704,5 +922,104 @@ onMounted(() => {
 .no-results-icon {
     font-size: 3rem;
     margin-bottom: 16px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0;
+        padding: 16px;
+    }
+    
+    .supplier-stock-container {
+        padding: 16px;
+    }
+    
+    .filters-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .separate-date-pickers {
+        gap: 10px;
+    }
+    
+    .date-actions {
+        flex-direction: column;
+    }
+    
+    .search-date-btn,
+    .recent-btn,
+    .clear-btn {
+        width: 100%;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        gap: 16px;
+        align-items: flex-start;
+    }
+    
+    .export-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    
+    .supplier-stats {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 12px;
+    }
+    
+    .stat-item {
+        padding: 12px;
+    }
+    
+    .stat-value {
+        font-size: 1.1rem;
+    }
+    
+    .stock-table {
+        font-size: 0.9rem;
+    }
+    
+    .stock-table th,
+    .stock-table td {
+        padding: 8px;
+    }
+    
+    .filter-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .page-title {
+        font-size: 1.5rem;
+    }
+    
+    .page-subtitle {
+        font-size: 1rem;
+    }
+    
+    .filters-card {
+        padding: 16px;
+    }
+    
+    .summary-card {
+        padding: 16px;
+    }
+    
+    .stock-items-section {
+        padding: 16px;
+    }
+    
+    .supplier-stats {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .export-actions {
+        flex-direction: column;
+    }
 }
 </style>

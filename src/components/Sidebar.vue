@@ -12,82 +12,82 @@
         <nav class="menu">
             <div class="menu-content">
                 <!-- DASH BOARD -->
-                <router-link to="/home" class="menu-item" active-class="active">
+                <router-link to="/home" class="menu-item" active-class="active" @click="handleMenuClick('/home')">
                     📊 Dashboard
                 </router-link>
 
                 <!-- PEOPLE -->
                 <div class="menu-section">People</div>
-                <router-link to="/customers" class="menu-item" active-class="active">
+                <router-link to="/customers" class="menu-item" active-class="active" @click="handleMenuClick('/customers')">
                     👤 Customers
                 </router-link>
-                <router-link to="/suppliers" class="menu-item" active-class="active">
+                <router-link to="/suppliers" class="menu-item" active-class="active" @click="handleMenuClick('/suppliers')">
                     🏭 Suppliers
                 </router-link>
 
                 <!-- PACKING SLIP -->
                 <div class="menu-section">Packing Slip</div>
-                <router-link to="/packingslip" class="menu-item submenu-item" active-class="active">
+                <router-link to="/packingslip" class="menu-item submenu-item" active-class="active" @click="handleMenuClick('/packingslip')">
                     ➕ Add Packing Slip
                 </router-link>
-                <router-link to="/viewpackingslips" class="menu-item submenu-item" active-class="active">
+                <router-link to="/viewpackingslips" class="menu-item submenu-item" active-class="active" @click="handleMenuClick('/viewpackingslips')">
                     👁️ View Packing Slip
                 </router-link>
 
-               <!-- PURCHASE (STOCK) -->
-<div class="menu-section">Purchase (Stock)</div>
-<router-link to="/addstock" class="menu-item submenu-item" active-class="active">
-    ➕ Add Stock
-</router-link>
-<router-link to="/stockbysuppliers" class="menu-item submenu-item" active-class="active">
-    👁️ View Stock
-</router-link>
-<router-link to="/viewstockbyinvoice" class="menu-item submenu-item" active-class="active">
-    📋 View Stock by Invoice
-</router-link>
-<router-link to="/editsockbyinvoice" class="menu-item submenu-item" active-class="active">
-    ✏️ Edit Stock by Invoice
-</router-link>
+                <!-- PURCHASE (STOCK) -->
+                <div class="menu-section">Purchase (Stock)</div>
+                <router-link to="/addstock" class="menu-item submenu-item" active-class="active" @click="handleMenuClick('/addstock')">
+                    ➕ Add Stock
+                </router-link>
+                <router-link to="/stockbysuppliers" class="menu-item submenu-item" active-class="active" @click="handleMenuClick('/stockbysuppliers')">
+                    👁️ View Stock
+                </router-link>
+                <router-link to="/viewstockbyinvoice" class="menu-item submenu-item" active-class="active" @click="handleMenuClick('/viewstockbyinvoice')">
+                    📋 View Stock by Invoice
+                </router-link>
+                <router-link to="/editsockbyinvoice" class="menu-item submenu-item" active-class="active" @click="handleMenuClick('/editsockbyinvoice')">
+                    ✏️ Edit Stock by Invoice
+                </router-link>
 
                 <!-- INVENTORY -->
                 <div class="menu-section">Inventory</div>
-                <router-link to="/stock-items" class="menu-item" active-class="active">
+                <router-link to="/stock-items" class="menu-item" active-class="active" @click="handleMenuClick('/stock-items')">
                     📂 Inventory
                 </router-link>
 
                 <!-- REPORTS -->
                 <div class="menu-section">Reports</div>
-                <router-link to="/reports" class="menu-item" active-class="active">
+                <router-link to="/reports" class="menu-item" active-class="active" @click="handleMenuClick('/reports')">
                     📑 Reports
                 </router-link>
 
                 <!-- PRODUCT SETUP -->
                 <div class="menu-section">Product Setup</div>
-                <router-link to="/products" class="menu-item" active-class="active">
+                <router-link to="/products" class="menu-item" active-class="active" @click="handleMenuClick('/products')">
                     📦 Products
                 </router-link>
-                <router-link to="/colors" class="menu-item" active-class="active">
+                <router-link to="/colors" class="menu-item" active-class="active" @click="handleMenuClick('/colors')">
                     🎨 Colors
                 </router-link>
-                <router-link to="/sizes" class="menu-item" active-class="active">
+                <router-link to="/sizes" class="menu-item" active-class="active" @click="handleMenuClick('/sizes')">
                     📏 Sizes
                 </router-link>
 
                 <!-- ACTIVITIES -->
                 <div class="menu-section">Activities</div>
-                <router-link to="/stock-movements" class="menu-item" active-class="active">
+                <router-link to="/stock-movements" class="menu-item" active-class="active" @click="handleMenuClick('/stock-movements')">
                     🔁 Stock Movements
                 </router-link>
 
                 <!-- ADMIN -->
                 <div class="menu-section">Admin</div>
-                <router-link to="/databasebackup" class="menu-item" active-class="active">
+                <router-link to="/databasebackup" class="menu-item" active-class="active" @click="handleMenuClick('/databasebackup')">
                     💾 DataBase Backup
                 </router-link>
-                <router-link to="/auditlogs" class="menu-item" active-class="active">
+                <router-link to="/auditlogs" class="menu-item" active-class="active" @click="handleMenuClick('/auditlogs')">
                     📋 Audit Logs
                 </router-link>
-                <router-link to="/packingslipeditable" class="menu-item" active-class="active">
+                <router-link to="/packingslipeditable" class="menu-item" active-class="active" @click="handleMenuClick('/packingslipeditable')">
                     🧾 Packing Slip Update
                 </router-link>
 
@@ -99,7 +99,25 @@
 </template>
 
 <script setup>
+import { useRouter, useRoute } from 'vue-router';
+
+const router = useRouter();
+const route = useRoute();
+
+const handleMenuClick = (path) => {
+    
+    if (route.path === path) {
+        // Force navigation to the same route to trigger a refresh
+        router.replace(path).then(() => {
+            // This will cause the component to reerender and refresh data
+            window.location.reload();
+        });
+    }
+   
+};
 </script>
+
+
 
 <style scoped>
 .sidebar {
