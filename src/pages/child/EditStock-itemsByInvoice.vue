@@ -18,6 +18,26 @@
                         <h3>Search Invoice to Edit</h3>
                     </div>
                     <div class="filters-grid">
+                        <!-- Supplier Selection -->
+                        <div class="filter-group">
+                            <label>Select Supplier</label>
+                            <el-select 
+                                v-model="selectedSupplierId" 
+                                placeholder="Select Supplier"
+                                class="filter-select"
+                                filterable
+                                clearable
+                                @change="handleSupplierChange"
+                            >
+                                <el-option 
+                                    v-for="supplier in sortedSuppliers" 
+                                    :key="supplier.id"
+                                    :label="`${supplier.name} (${supplier.place})`"
+                                    :value="supplier.id" 
+                                />
+                            </el-select>
+                        </div>
+
                         <!-- Date Range Selection - Separate Pickers -->
                         <div class="filter-group">
                             <label>Select Date Range</label>
@@ -52,12 +72,12 @@
                                 <div class="date-actions">
                                     <el-button 
                                         type="primary" 
-                                        @click="loadInvoicesByDate" 
+                                        @click="loadInvoicesByFilters" 
                                         :loading="loadingInvoices"
-                                        :disabled="!startDate"
+                                        :disabled="!hasActiveFilters"
                                         class="search-date-btn"
                                     >
-                                        Search Dates
+                                        Search
                                     </el-button>
                                     <el-button 
                                         @click="loadRecentInvoices" 
@@ -67,10 +87,10 @@
                                         Show Recent
                                     </el-button>
                                     <el-button 
-                                        @click="clearDates" 
+                                        @click="clearFilters" 
                                         class="clear-btn"
                                     >
-                                        Clear
+                                        Clear All
                                     </el-button>
                                 </div>
                             </div>
@@ -81,7 +101,7 @@
                             <label>Select or Type Invoice Number</label>
                             <el-select 
                                 v-model="invoiceNumber" 
-                                placeholder="Shows only last 7 days in drop down. Otherwise type the Invoice No:"
+                                placeholder="Select from filtered invoices or type invoice number"
                                 class="filter-select" 
                                 filterable 
                                 clearable
@@ -101,6 +121,9 @@
                             </el-select>
                             <div class="dropdown-info" v-if="totalInvoices > visibleInvoices.length">
                                 Showing {{ visibleInvoices.length }} of {{ totalInvoices }} invoices
+                            </div>
+                            <div class="filter-info" v-if="activeFilterText">
+                                {{ activeFilterText }}
                             </div>
                         </div>
                     </div>
@@ -241,7 +264,7 @@
                 <div v-else-if="!loading && !invoiceData" class="initial-state">
                     <div class="initial-icon">🔍</div>
                     <h3>Select or Type Invoice</h3>
-                    <p>Select dates or use "Show Recent" to load invoices, then select an invoice to edit</p>
+                    <p>Use filters to search invoices by supplier, date, or show recent invoices</p>
                 </div>
 
                 <!-- Error State -->
@@ -269,19 +292,49 @@ const invoiceData = ref(null);
 const invoiceNumber = ref("");
 const startDate = ref("");
 const endDate = ref("");
+const selectedSupplierId = ref("");
+const suppliers = ref([]);
 const loading = ref(false);
 const loadingInvoices = ref(false);
 const saving = ref(false);
 const errorMessage = ref("");
 const editableItems = ref([]);
 const recentInvoices = ref([]);
-const dateFilteredInvoices = ref([]);
+const filteredInvoices = ref([]);
 const searchQuery = ref("");
 
 // Virtual scrolling constants
 const VISIBLE_LIMIT = 50;
 
 // Computed properties
+const sortedSuppliers = computed(() => {
+    return [...suppliers.value].sort((a, b) => a.name.localeCompare(b.name));
+});
+
+const hasActiveFilters = computed(() => {
+    return selectedSupplierId.value || startDate.value;
+});
+
+const activeFilterText = computed(() => {
+    if (!hasActiveFilters.value) return '';
+    
+    let text = 'Filtered by: ';
+    const parts = [];
+    
+    if (selectedSupplierId.value) {
+        const supplier = suppliers.value.find(s => s.id === selectedSupplierId.value);
+        parts.push(`Supplier: ${supplier?.name || selectedSupplierId.value}`);
+    }
+    
+    if (startDate.value && (!endDate.value || startDate.value === endDate.value)) {
+        parts.push(`Date: ${formatDate(startDate.value)}`);
+    } else if (startDate.value && endDate.value) {
+        parts.push(`Dates: ${formatDate(startDate.value)} to ${formatDate(endDate.value)}`);
+    }
+    
+    return text + parts.join(', ');
+});
+
 const hasChanges = computed(() => {
     return modifiedItems.value.length > 0 || deletedItems.value.length > 0;
 });
@@ -297,34 +350,28 @@ const deletedItems = computed(() => {
 });
 
 const allInvoices = computed(() => {
-    return dateFilteredInvoices.value.length > 0 ? dateFilteredInvoices.value : recentInvoices.value;
-});
-
-const filteredInvoices = computed(() => {
-    if (!searchQuery.value) {
-        return allInvoices.value;
-    }
-    
-    const query = searchQuery.value.toLowerCase();
-    return allInvoices.value.filter(invoice => 
-        invoice.invoice_number.toLowerCase().includes(query) ||
-        invoice.supplier_name.toLowerCase().includes(query) ||
-        invoice.supplier_location.toLowerCase().includes(query)
-    );
+    return filteredInvoices.value.length > 0 ? filteredInvoices.value : recentInvoices.value;
 });
 
 const visibleInvoices = computed(() => {
     // Virtual scrolling - only show limited items for performance
-    return filteredInvoices.value.slice(0, VISIBLE_LIMIT);
+    return allInvoices.value.slice(0, VISIBLE_LIMIT);
 });
 
 const totalInvoices = computed(() => {
-    return filteredInvoices.value.length;
+    return allInvoices.value.length;
 });
 
 // Methods
 const searchInvoices = (query) => {
     searchQuery.value = query;
+};
+
+const handleSupplierChange = () => {
+    // Reset other filters when supplier changes
+    startDate.value = "";
+    endDate.value = "";
+    filteredInvoices.value = [];
 };
 
 const handleStartDateChange = (date) => {
@@ -339,15 +386,18 @@ const handleEndDateChange = (date) => {
     endDate.value = date;
 };
 
-const clearDates = () => {
+const clearFilters = () => {
+    selectedSupplierId.value = "";
     startDate.value = "";
     endDate.value = "";
-    dateFilteredInvoices.value = [];
-    ElMessage.info('Date filters cleared');
+    filteredInvoices.value = [];
+    searchQuery.value = "";
+    ElMessage.info('All filters cleared');
 };
 
 const loadRecentInvoices = async () => {
     loadingInvoices.value = true;
+    selectedSupplierId.value = "";
     startDate.value = "";
     endDate.value = "";
     searchQuery.value = "";
@@ -355,7 +405,7 @@ const loadRecentInvoices = async () => {
         const res = await axios.get('/purchase-history/recent/');
         if (res.data && res.data.results) {
             recentInvoices.value = res.data.results;
-            dateFilteredInvoices.value = [];
+            filteredInvoices.value = [];
             ElMessage.success(`Loaded ${res.data.results.length} recent invoices`);
         }
     } catch (error) {
@@ -366,9 +416,9 @@ const loadRecentInvoices = async () => {
     }
 };
 
-const loadInvoicesByDate = async () => {
-    if (!startDate.value) {
-        ElMessage.warning('Please select a start date');
+const loadInvoicesByFilters = async () => {
+    if (!hasActiveFilters.value) {
+        ElMessage.warning('Please select at least one filter (supplier or date)');
         return;
     }
 
@@ -376,31 +426,54 @@ const loadInvoicesByDate = async () => {
     searchQuery.value = "";
 
     try {
-        let url = '/purchase-history/filter/';
-        
-        if (!endDate.value || startDate.value === endDate.value) {
-            // Single date
-            url += `?date=${startDate.value}`;
-        } else {
-            // Date range
-            url += `?start_date=${startDate.value}&end_date=${endDate.value}`;
+        let url = '/purchase-history/supplier/';
+        const params = new URLSearchParams();
+
+        // Add supplier if selected
+        if (selectedSupplierId.value) {
+            params.append('supplier_id', selectedSupplierId.value);
         }
 
-        const res = await axios.get(url);
+        // Add date filters
+        if (startDate.value && (!endDate.value || startDate.value === endDate.value)) {
+            // Single date
+            params.append('date', startDate.value);
+        } else if (startDate.value && endDate.value) {
+            // Date range
+            params.append('start_date', startDate.value);
+            params.append('end_date', endDate.value);
+        }
+
+        const fullUrl = `${url}?${params.toString()}`;
+        const res = await axios.get(fullUrl);
+        
         if (res.data && res.data.results) {
-            dateFilteredInvoices.value = res.data.results;
-            const dateText = !endDate.value || startDate.value === endDate.value 
-                ? `date ${formatDate(startDate.value)}` 
-                : `date range ${formatDate(startDate.value)} to ${formatDate(endDate.value)}`;
-            ElMessage.success(`Found ${res.data.results.length} invoices for ${dateText}`);
+            filteredInvoices.value = res.data.results;
+            
+            // Generate filter description
+            let filterDesc = '';
+            if (selectedSupplierId.value) {
+                const supplier = suppliers.value.find(s => s.id === selectedSupplierId.value);
+                filterDesc += `supplier ${supplier?.name}`;
+            }
+            if (startDate.value) {
+                if (filterDesc) filterDesc += ' and ';
+                if (!endDate.value || startDate.value === endDate.value) {
+                    filterDesc += `date ${formatDate(startDate.value)}`;
+                } else {
+                    filterDesc += `dates ${formatDate(startDate.value)} to ${formatDate(endDate.value)}`;
+                }
+            }
+            
+            ElMessage.success(`Found ${res.data.results.length} invoices for ${filterDesc}`);
         } else {
-            dateFilteredInvoices.value = [];
-            ElMessage.info('No invoices found for selected dates');
+            filteredInvoices.value = [];
+            ElMessage.info('No invoices found for selected filters');
         }
     } catch (error) {
-        console.error("Error loading invoices by date:", error);
-        ElMessage.error('Error loading invoices for selected dates');
-        dateFilteredInvoices.value = [];
+        console.error("Error loading invoices by filters:", error);
+        ElMessage.error('Error loading invoices for selected filters');
+        filteredInvoices.value = [];
     } finally {
         loadingInvoices.value = false;
     }
@@ -563,12 +636,183 @@ const formatDate = (dateString) => {
     }
 };
 
-onMounted(() => {
-    loadRecentInvoices();
+const loadSuppliers = async () => {
+    try {
+        const res = await axios.get('/suppliers/');
+        suppliers.value = res.data;
+    } catch (error) {
+        console.error("Error loading suppliers:", error);
+        ElMessage.error('Error loading suppliers');
+    }
+};
+
+onMounted(async () => {
+    await Promise.all([
+        loadSuppliers(),
+        loadRecentInvoices()
+    ]);
 });
 </script>
 
 <style scoped>
+
+.filter-info {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 4px;
+    font-style: italic;
+}
+
+
+.filters-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+}
+
+
+@media (max-width: 1024px) {
+    .filters-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .filters-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+.layout {
+    display: flex;
+}
+
+.main-content {
+    margin-left: 235px;
+    flex: 1;
+    min-height: 100vh;
+    background: #f9fafb;
+    padding: 20px;
+}
+
+.supplier-stock-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.header-section {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.page-title {
+    font-size: 2rem;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.page-subtitle {
+    color: #666;
+    font-size: 1.1rem;
+}
+
+.filters-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 24px;
+}
+
+.filters-header h3 {
+    margin: 0 0 16px 0;
+    color: #333;
+    font-size: 1.2rem;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.filter-group label {
+    font-weight: 500;
+    color: #555;
+}
+
+/* Separate Date Pickers Styles */
+.separate-date-pickers {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.date-picker-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.date-label {
+    font-weight: 500;
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.single-date-picker {
+    width: 100%;
+}
+
+.date-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.search-date-btn,
+.recent-btn,
+.clear-btn {
+    flex: 1;
+}
+
+.filter-select {
+    width: 100%;
+}
+
+.dropdown-info {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 4px;
+    text-align: right;
+}
+
+.loading-overlay {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: #666;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 .layout {
     display: flex;
 }
