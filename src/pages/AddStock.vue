@@ -99,18 +99,26 @@
                     </table>
                 </div>
 
-                <!-- 🧾 Invoice Section -->
+                <!-- Invoice Section -->
                 <div class="form-row invoice-section">
-                    <div class="form-group">
-                        <label>Invoice Number <span class="required">*</span></label>
-                        <input type="text" v-model="invoiceNumber" placeholder="Enter Invoice Number"
-                            class="invoice-input" :disabled="loading" />
-                    </div>
-                    <div class="form-group">
-                        <label>Invoice Date <span class="required">*</span></label>
-                        <input type="date" v-model="invoiceDate" class="invoice-input" :disabled="loading" />
-                    </div>
-                </div>
+    <div class="form-group invoice-number-box">
+        <label>Invoice Number <span class="required">*</span></label>
+        <input type="text" v-model="invoiceNumber" placeholder="Enter Invoice Number"
+            class="invoice-input" :disabled="loading" />
+    </div>
+    <div class="form-group date-picker-box">
+        <label>Invoice Date <span class="required">*</span></label>
+        <el-date-picker
+            v-model="invoiceDate"
+            type="date"
+            placeholder="Select invoice date"
+            format="DD/MM/YYYY"
+            value-format="YYYY-MM-DD"
+            :disabled="loading"
+            class="invoice-input"
+        />
+    </div>
+</div>
 
                 <!-- Buttons -->
                 <div class="form-actions">
@@ -134,6 +142,7 @@ import Sidebar from "../components/Sidebar.vue";
 import ModernHeader from "../components/header.vue";
 import { ElSelect, ElOption } from 'element-plus';
 import 'element-plus/dist/index.css';
+import { ElDatePicker } from 'element-plus';
 
 // ---- FORM STATE ----
 const selectedSupplier = ref("");
@@ -350,40 +359,53 @@ const resetForm = () => {
 .invoice-section {
     display: flex;
     justify-content: flex-start;
-    gap: 15px;
-    align-items: center;
+    gap: 40px; 
+    align-items: flex-end;
     flex-wrap: wrap;
     margin: 15px 0 25px 0;
     background: #f9fafb;
-    padding: 12px 15px;
-    border-radius: 6px;
+    padding: 20px 25px;
+    border-radius: 8px;
     border: 1px solid #e0e0e0;
     max-width: 100%;
 }
 
-.invoice-section .form-group {
-    flex: none;
-    width: 550px; 
+.invoice-number-box {
+    flex: 0 0 auto;
+    width: 300px; 
     display: flex;
     flex-direction: column;
+    margin-bottom: 0;
+}
+
+
+.date-picker-box {
+    flex: 0 0 auto;
+    width: 300px; 
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0;
 }
 
 .invoice-section label {
     font-weight: 600;
     font-size: 0.8rem;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
     color: #444;
+    display: block;
 }
 
+
 .invoice-input {
-    padding: 6px 10px;
+    padding: 8px 12px;
     border: 1px solid #ccc;
     border-radius: 5px;
     font-size: 0.85rem;
     width: 100%;
-    height: 34px;
+    height: 38px;
     background-color: #fff;
     transition: all 0.2s ease;
+    box-sizing: border-box;
 }
 
 .invoice-input:focus {
@@ -392,11 +414,28 @@ const resetForm = () => {
     box-shadow: 0 0 4px rgba(64, 158, 255, 0.3);
 }
 
+
+.date-picker-container {
+    width: 100%;
+}
+
+
+.date-picker-box :deep(.el-date-editor) {
+    width: 100% !important;
+}
+
+.date-picker-box :deep(.el-input__inner) {
+    width: 100% !important;
+}
+
+.date-picker-box :deep(.el-input) {
+    width: 100% !important;
+}
+
 .required {
     color: red;
     font-weight: bold;
 }
-
 .list-container {
     background: #fff;
     padding: 25px;
