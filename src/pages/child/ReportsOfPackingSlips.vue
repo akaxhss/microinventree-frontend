@@ -268,7 +268,7 @@ const pageSize = 50;
 const nextPage = ref(null);
 const previousPage = ref(null);
 
-const sizeHeaders = ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "Free Size"];
+const sizeHeaders = ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "FREE SIZE","L/XL","2/3XL"];
 
 // Distributor details
 const distributorInfo = {
@@ -742,7 +742,7 @@ const exportPDF = (data) => {
 
       // Table headers with better column widths
       doc.setFontSize(7);
-      const headers = ["SN", "Color", "S", "M", "L", "XL", "XXL", "XXXL", "Free Size", "S/M", "L/XL", "2/3XL", "Total"];
+      const headers = ["SN", "Color", "S", "M", "L", "XL", "XXL", "XXXL", "FREE SIZE", "S/M", "L/XL", "2/3XL", "Total"];
 
       // Draw table header with adjusted column widths
       let x = 20;
@@ -799,7 +799,7 @@ const exportPDF = (data) => {
           row.sizes.XL || 0,
           row.sizes.XXL || 0,
           row.sizes.XXXL || 0,
-          row.sizes["Free Size"] || 0,
+          row.sizes["FREE SIZE"] || 0,
           row.sizes["S/M"] || 0,
           row.sizes["L/XL"] || 0,
           row.sizes["2/3XL"] || 0,
@@ -836,7 +836,7 @@ const exportPDF = (data) => {
         group.totals.XL || 0,
         group.totals.XXL || 0,
         group.totals.XXXL || 0,
-        group.totals["Free Size"] || 0,
+        group.totals["FREE SIZE"] || 0,
         group.totals["S/M"] || 0,
         group.totals["L/XL"] || 0,
         group.totals["2/3XL"] || 0,

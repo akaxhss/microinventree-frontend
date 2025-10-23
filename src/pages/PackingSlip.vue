@@ -704,7 +704,8 @@ const getCustomerName = () => {
 
 const groupByProduct = (lines) => {
     const grouped = {};
-    const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL"];
+    // Include all sizes from both PDF and Excel
+    const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL", "FREE SIZE", "S/M", "L/XL", "2/3XL"];
 
     lines.forEach((line) => {
         const product = line.product_name;
@@ -748,44 +749,106 @@ const exportExcel = (slipData) => {
     const wb = XLSX.utils.book_new();
     const wsData = [];
     const grouped = groupByProduct(slipData.lines);
-    const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL"];
+    const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL", "FREE SIZE", "S/M", "L/XL", "2/3XL"];
 
     // Slip header
     wsData.push(["Packing Slip Report"]);
     wsData.push([`Slip Number: ${slipData.slip_number}`]);
     wsData.push([`Date: ${formatDate(slipData.date)}`]);
     wsData.push([`Customer: ${getCustomerName()}`]);
+    
+    // Add distributor details to match PDF
+    wsData.push([]);
+    wsData.push(["AS DISTRIBUTORS", "", "", "", "", "", "CUSTOMER DETAILS"]);
+    wsData.push(["3rd Floor, Golden tower, Venkatarachina", "", "", "", "", "", `Name: ${getCustomerName()}`]);
+    wsData.push(["Nevagoschemy, Katryanska, Kerala | PN: 6965 U1", "", "", "", "", "", `Contact: ${getCustomerContact()}`]);
+    wsData.push(["TEL: 0481 2425578 | Email: asdistributors2008@yahoo.com", "", "", "", "", "", `Place: ${getCustomerPlace()}`]);
+    wsData.push(["GSTIN: 32AAPFA6202P2B", "", "", "", "", "", `Address: ${getCustomerAddress()}`]);
+    
+    wsData.push([]);
+    
+    // Packing slip header to match PDF
+    wsData.push(["PACKING SLIP"]);
+    wsData.push([`Slip #: ${slipData.slip_number}`, `Date: ${formatDate(slipData.date)}`, `No of Cartons: ${Object.keys(grouped).length}`]);
     wsData.push([]);
 
-    Object.keys(grouped).forEach((product) => {
+    Object.keys(grouped).forEach((product, productIndex) => {
         const group = grouped[product];
 
         // Product heading
         wsData.push([product]);
 
-        // Header row
-        wsData.push(["Color", ...sizeHeaders, "Total Qty"]);
+        // Header row with all sizes matching PDF
+        wsData.push(["SN", "Color", "S", "M", "L", "XL", "XXL", "XXXL", "FREE SIZE", "S/M", "L/XL", "2/3XL", "Total"]);
 
         // Data rows
-        group.rows.forEach((row) => {
+        group.rows.forEach((row, rowIndex) => {
             wsData.push([
+                (rowIndex + 1).toString(),
                 row.color,
-                ...sizeHeaders.map(size => row.sizes[size] || 0),
+                row.sizes.S || 0,
+                row.sizes.M || 0,
+                row.sizes.L || 0,
+                row.sizes.XL || 0,
+                row.sizes.XXL || 0,
+                row.sizes.XXXL || 0,
+                row.sizes["FREE SIZE"] || 0,
+                row.sizes["S/M"] || 0,
+                row.sizes["L/XL"] || 0,
+                row.sizes["2/3XL"] || 0,
                 row.total
             ]);
         });
 
         // Grand total row
         wsData.push([
+            "",
             "Grand Total",
-            ...sizeHeaders.map(size => group.totals[size]),
+            group.totals.S || 0,
+            group.totals.M || 0,
+            group.totals.L || 0,
+            group.totals.XL || 0,
+            group.totals.XXL || 0,
+            group.totals.XXXL || 0,
+            group.totals["FREE SIZE"] || 0,
+            group.totals["S/M"] || 0,
+            group.totals["L/XL"] || 0,
+            group.totals["2/3XL"] || 0,
             group.grandTotal
         ]);
 
         wsData.push([]);
     });
 
+    // Add summary section to match PDF
+    const totalQuantity = Object.values(grouped).reduce((sum, group) => sum + group.grandTotal, 0);
+    const totalProducts = Object.keys(grouped).length;
+    
+    wsData.push(["SUMMARY"]);
+    wsData.push([`Total Products: ${totalProducts}`, `Total Items: ${totalQuantity}`]);
+    wsData.push([]);
+    wsData.push(["Packed By: ___________________", "Checked By: ___________________"]);
+
     const ws = XLSX.utils.aoa_to_sheet(wsData);
+    
+    // Set column widths for better formatting
+    const colWidths = [
+        { wch: 5 },  // SN
+        { wch: 15 }, // Color
+        { wch: 6 },  // S
+        { wch: 6 },  // M
+        { wch: 6 },  // L
+        { wch: 6 },  // XL
+        { wch: 8 },  // XXL
+        { wch: 8 },  // XXXL
+        { wch: 10 }, // FREE SIZE
+        { wch: 8 },  // S/M
+        { wch: 8 },  // L/XL
+        { wch: 8 },  // 2/3XL
+        { wch: 8 }   // Total
+    ];
+    ws['!cols'] = colWidths;
+
     XLSX.utils.book_append_sheet(wb, ws, `Slip_${slipData.slip_number}`);
     XLSX.writeFile(wb, `PackingSlip_${slipData.slip_number}.xlsx`);
 };
@@ -793,10 +856,13 @@ const exportExcel = (slipData) => {
 const exportPDF = (data) => {
     const doc = new jsPDF();
 
-    data.forEach((slip, index) => {
+    // Handle both single slip and array of slips
+    const slips = Array.isArray(data) ? data : [data];
+
+    slips.forEach((slip, index) => {
         if (index > 0) doc.addPage();
 
-        const customer = getCustomerDetails(slip.customer);
+        const customer = customers.value.find(c => c.id == slip.customer);
         const grouped = groupByProduct(slip.lines);
 
         // Set smaller default font size
@@ -881,7 +947,7 @@ const exportPDF = (data) => {
         const slipInfoY = slipY + 5;
         doc.text(`Slip #: ${slip.slip_number || 'N/A'}`, 20, slipInfoY);
         doc.text(`Date: ${formatDate(slip.date) || 'N/A'}`, 90, slipInfoY);
-        doc.text(`No of Cartons: `, 150, slipInfoY);//`No of Cartons: ${numberOfCartons}
+        doc.text(`No of Cartons: ${numberOfCartons}`, 150, slipInfoY);
 
         // Another separator line
         doc.line(15, slipInfoY + 3, 195, slipInfoY + 3);
@@ -905,7 +971,7 @@ const exportPDF = (data) => {
 
             // Table headers with better column widths
             doc.setFontSize(7);
-            const headers = ["SN", "Color", "S", "M", "L", "XL", "XXL", "XXXL", "Free Size", "S/M", "L/XL", "2/3XL", "Total"];
+            const headers = ["SN", "Color", "S", "M", "L", "XL", "XXL", "XXXL", "FREE SIZE", "S/M", "L/XL", "2/3XL", "Total"];
 
             // Draw table header with adjusted column widths
             let x = 20;
@@ -962,7 +1028,7 @@ const exportPDF = (data) => {
                     row.sizes.XL || 0,
                     row.sizes.XXL || 0,
                     row.sizes.XXXL || 0,
-                    row.sizes["Free Size"] || 0,
+                    row.sizes["FREE SIZE"] || 0,
                     row.sizes["S/M"] || 0,
                     row.sizes["L/XL"] || 0,
                     row.sizes["2/3XL"] || 0,
@@ -999,7 +1065,7 @@ const exportPDF = (data) => {
                 group.totals.XL || 0,
                 group.totals.XXL || 0,
                 group.totals.XXXL || 0,
-                group.totals["Free Size"] || 0,
+                group.totals["FREE SIZE"] || 0,
                 group.totals["S/M"] || 0,
                 group.totals["L/XL"] || 0,
                 group.totals["2/3XL"] || 0,
