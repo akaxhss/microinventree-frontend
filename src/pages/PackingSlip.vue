@@ -769,7 +769,7 @@ const exportExcel = (slipData) => {
     
     // Packing slip header to match PDF
     wsData.push(["PACKING SLIP"]);
-    wsData.push([`Slip #: ${slipData.slip_number}`, `Date: ${formatDate(slipData.date)}`, `No of Cartons: ${Object.keys(grouped).length}`]);
+    wsData.push([`Slip #: ${slipData.slip_number}`, `Date: ${formatDate(slipData.date)}`, `No of Cartons: `]);
     wsData.push([]);
 
     Object.keys(grouped).forEach((product, productIndex) => {
@@ -947,7 +947,7 @@ const exportPDF = (data) => {
         const slipInfoY = slipY + 5;
         doc.text(`Slip #: ${slip.slip_number || 'N/A'}`, 20, slipInfoY);
         doc.text(`Date: ${formatDate(slip.date) || 'N/A'}`, 90, slipInfoY);
-        doc.text(`No of Cartons: ${numberOfCartons}`, 150, slipInfoY);
+        doc.text(`No of Cartons: `, 150, slipInfoY);
 
         // Another separator line
         doc.line(15, slipInfoY + 3, 195, slipInfoY + 3);
