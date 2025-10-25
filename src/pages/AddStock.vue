@@ -57,7 +57,7 @@
                             <tr v-for="(item, idx) in stockItems" :key="idx">
                                 <td class="index-col">{{ idx + 1 }}</td>
                                 <td>
-                                    <el-select v-model="item.productId" @change="onProductChange(idx)" filterable
+                                    <el-select v-model="item.productId" filterable
                                         placeholder="Select Product" class="w-full" :disabled="loading" clearable>
                                         <el-option v-for="p in sortedProducts" :key="p.id" :label="p.name"
                                             :value="p.id" />
@@ -295,19 +295,41 @@ const loadColors = async () => {
 };
 
 // ---- EVENTS ----
-const onProductChange = (i) => {
-    if (i === stockItems.value.length - 1 && stockItems.value[i].productId) setTimeout(addNewRow, 300);
+const onColorChange = (idx) => {
+    // Only add new row if this is the last row and color is selected
+    if (idx === stockItems.value.length - 1 && stockItems.value[idx].colorId) {
+        setTimeout(() => {
+            addNewRowWithProduct(idx);
+        }, 300);
+    }
 };
-const onColorChange = (i) => {
-    const it = stockItems.value[i];
-    if (i === stockItems.value.length - 1 && it.productId && it.sizeId && it.colorId && it.quantity > 0)
-        setTimeout(addNewRow, 300);
+
+const addNewRowWithProduct = (previousRowIndex) => {
+    const previousRow = stockItems.value[previousRowIndex];
+    const newRow = createEmptyItem();
+    
+    // Copy the product from the previous row
+    if (previousRow.productId) {
+        newRow.productId = previousRow.productId;
+    }
+    
+    stockItems.value.push(newRow);
 };
+
 const addNewRow = () => {
     const last = stockItems.value[stockItems.value.length - 1];
-    if (last.productId || last.sizeId || last.colorId || last.quantity > 0)
-        stockItems.value.push(createEmptyItem());
+    if (last.productId || last.sizeId || last.colorId || last.quantity > 0) {
+        const newRow = createEmptyItem();
+        
+        // Copy the product from the previous row when manually adding
+        if (last.productId) {
+            newRow.productId = last.productId;
+        }
+        
+        stockItems.value.push(newRow);
+    }
 };
+
 const removeItem = (i) => stockItems.value.length > 1 ? stockItems.value.splice(i, 1) : stockItems.value[0] = createEmptyItem();
 const validateQuantity = (i) => { if (stockItems.value[i].quantity < 0) stockItems.value[i].quantity = 0; };
 const formatDate = (d) => d ? new Date(d).toLocaleString() : "";
@@ -352,8 +374,7 @@ const resetForm = () => {
         stockItems.value = [createEmptyItem()];
     }
 };
-</script>
-
+</script> 
 
 <style scoped>
 .invoice-section {

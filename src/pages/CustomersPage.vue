@@ -51,11 +51,48 @@
 
         <!-- Customers List -->
         <div class="customers-list-section">
-          <h3 class="section-title">Existing Customers</h3>
-          <div v-if="customers.length === 0" class="empty-state">
-            No customers added yet. Add your first customer above.
+          <div class="section-header">
+            <h3 class="section-title">Existing Customers</h3>
+            
+            <!-- Filter Section -->
+            <div class="filter-section">
+              <div class="filter-group">
+                <label for="customerFilter">Filter by Name</label>
+                <input 
+                  type="text" 
+                  id="customerFilter" 
+                  v-model="customerFilter" 
+                  placeholder="Search customer by name..." 
+                  class="filter-input" 
+                />
+                <button 
+                  v-if="customerFilter" 
+                  class="clear-filter-btn" 
+                  @click="clearFilter"
+                  title="Clear filter"
+                >
+                  ❌
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="filteredCustomers.length === 0" class="empty-state">
+            <div v-if="customerFilter">
+              No customers found matching "{{ customerFilter }}"
+            </div>
+            <div v-else>
+              No customers added yet. Add your first customer above.
+            </div>
           </div>
           <div v-else class="customers-table">
+            <div class="results-info">
+              Showing {{ filteredCustomers.length }} of {{ customers.length }} customers
+              <span v-if="customerFilter">for "{{ customerFilter }}"</span>
+              <button class="btn download-all-btn" @click="downloadAllCustomers" title="Download all customers as CSV">
+                📥 Download All as CSV
+              </button>
+            </div>
             <table class="data-table">
               <thead>
                 <tr>
@@ -67,7 +104,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="customer in sortedCustomers" :key="customer.id">
+                <tr v-for="customer in filteredCustomers" :key="customer.id">
                   <td class="name-cell">
                     <strong>{{ customer.name }}</strong>
                   </td>
@@ -78,11 +115,20 @@
                     {{ customer.place || '-' }}
                   </td>
                   <td class="address-cell">
-                    {{ customer.address || '-' }}
+                    <div class="address-info">
+                      {{ customer.address || '-' }}
+                      <div v-if="customer.address && customer.address.length > 50" class="address-tooltip">
+                        📍
+                        <div class="tooltip-text">{{ customer.address }}</div>
+                      </div>
+                    </div>
                   </td>
                   <td class="actions-cell">
                     <button class="btn edit-btn" @click="openEditPopup(customer)" title="Edit">
                       ✏️
+                    </button>
+                    <button class="btn download-btn" @click="downloadCustomer(customer)" title="Download Details">
+                      📥
                     </button>
                     <button class="btn danger-btn" @click="deleteCustomer(customer.id)" title="Delete">
                       🗑️
@@ -94,50 +140,50 @@
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Edit Customer Popup -->
-    <div v-if="showEditPopup" class="popup-overlay" @click="closeEditPopup">
-      <div class="popup-content" @click.stop>
-        <div class="popup-header">
-          <h3>Edit Customer</h3>
-          <button class="close-btn" @click="closeEditPopup">✕</button>
-        </div>
-        <div class="popup-body">
-          <div class="customer-form">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="editCustomerName">Customer Name *</label>
-                <input type="text" id="editCustomerName" v-model="editForm.name" placeholder="Enter customer name"
-                  class="form-input" />
+      <!-- Edit Customer Popup -->
+      <div v-if="showEditPopup" class="popup-overlay" @click="closeEditPopup">
+        <div class="popup-content" @click.stop>
+          <div class="popup-header">
+            <h3>Edit Customer</h3>
+            <button class="close-btn" @click="closeEditPopup">✕</button>
+          </div>
+          <div class="popup-body">
+            <div class="customer-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editCustomerName">Customer Name *</label>
+                  <input type="text" id="editCustomerName" v-model="editForm.name" placeholder="Enter customer name"
+                    class="form-input" />
+                </div>
+                <div class="form-group">
+                  <label for="editCustomerContact">Contact</label>
+                  <input type="text" id="editCustomerContact" v-model="editForm.contact"
+                    placeholder="Phone number or email" class="form-input" />
+                </div>
               </div>
-              <div class="form-group">
-                <label for="editCustomerContact">Contact</label>
-                <input type="text" id="editCustomerContact" v-model="editForm.contact"
-                  placeholder="Phone number or email" class="form-input" />
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="editCustomerPlace">Place</label>
-                <input type="text" id="editCustomerPlace" v-model="editForm.place" placeholder="City or location"
-                  class="form-input" />
-              </div>
-              <div class="form-group full-width">
-                <label for="editCustomerAddress">Address</label>
-                <textarea id="editCustomerAddress" v-model="editForm.address" placeholder="Full address"
-                  class="form-textarea" rows="3"></textarea>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editCustomerPlace">Place</label>
+                  <input type="text" id="editCustomerPlace" v-model="editForm.place" placeholder="City or location"
+                    class="form-input" />
+                </div>
+                <div class="form-group full-width">
+                  <label for="editCustomerAddress">Address</label>
+                  <textarea id="editCustomerAddress" v-model="editForm.address" placeholder="Full address"
+                    class="form-textarea" rows="3"></textarea>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="popup-footer">
-          <button class="btn cancel-btn" @click="closeEditPopup">
-            ❌ Cancel
-          </button>
-          <button class="btn save-btn" @click="updateCustomer" :disabled="!editForm.name">
-            💾 Update Customer
-          </button>
+          <div class="popup-footer">
+            <button class="btn cancel-btn" @click="closeEditPopup">
+              ❌ Cancel
+            </button>
+            <button class="btn save-btn" @click="updateCustomer" :disabled="!editForm.name">
+              💾 Update Customer
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -154,6 +200,9 @@ import ModernHeader from "../components/header.vue";
 const customers = ref([]);
 const isEditing = ref(false);
 const editingId = ref(null);
+
+// Filter state
+const customerFilter = ref("");
 
 // Popup state
 const showEditPopup = ref(false);
@@ -174,12 +223,79 @@ const editForm = reactive({
   address: ""
 });
 
+// Computed property for filtered customers
+const filteredCustomers = computed(() => {
+  if (!customerFilter.value) {
+    return sortedCustomers.value;
+  }
+  
+  const filter = customerFilter.value.toLowerCase();
+  return sortedCustomers.value.filter(customer => 
+    customer.name.toLowerCase().includes(filter) ||
+    (customer.contact && customer.contact.toLowerCase().includes(filter)) ||
+    (customer.place && customer.place.toLowerCase().includes(filter))
+  );
+});
+
 // Computed property for sorted customers
 const sortedCustomers = computed(() => {
   return [...customers.value].sort((a, b) => {
     return a.name.localeCompare(b.name);
   });
 });
+
+// Clear filter
+const clearFilter = () => {
+  customerFilter.value = "";
+};
+
+// Download single customer details as JSON
+const downloadCustomer = (customer) => {
+  const customerData = JSON.stringify([customer], null, 2);
+  const blob = new Blob([customerData], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `customer_${customer.name.replace(/\s+/g, '_')}_details.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+// Download all customers as CSV
+const downloadAllCustomers = () => {
+  if (customers.value.length === 0) {
+    alert('No customers to download!');
+    return;
+  }
+
+  // Convert customers data to CSV format
+  const headers = ['ID', 'Name', 'Contact', 'Place', 'Address'];
+  
+  const csvData = customers.value.map(customer => [
+    customer.id,
+    `"${customer.name}"`,
+    `"${customer.contact || ''}"`,
+    `"${customer.place || ''}"`,
+    `"${(customer.address || '').replace(/"/g, '""')}"`
+  ]);
+
+  const csvContent = [
+    headers.join(','),
+    ...csvData.map(row => row.join(','))
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `all_customers_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
 
 // Load customers on mount
 onMounted(async () => {
@@ -361,6 +477,111 @@ const resetForm = () => {
   padding-bottom: 8px;
 }
 
+/* Section Header with Filter */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.section-title {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+/* Filter Section */
+.filter-section {
+  display: flex;
+  align-items: flex-end;
+  gap: 15px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  position: relative;
+}
+
+.filter-group label {
+  font-weight: 600;
+  color: #555;
+  font-size: 0.9rem;
+  margin-bottom: 0;
+}
+
+.filter-input {
+  padding: 8px 35px 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: #fff;
+  transition: border-color 0.2s;
+  min-width: 250px;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+}
+
+.clear-filter-btn {
+  position: absolute;
+  right: 8px;
+  top: 70%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #999;
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.clear-filter-btn:hover {
+  background: #f0f0f0;
+  color: #666;
+}
+
+/* Results Info */
+.results-info {
+  margin-bottom: 15px;
+  color: #666;
+  font-size: 0.9rem;
+  font-style: italic;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #4CAF50;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.download-all-btn {
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.download-all-btn:hover {
+  background: #1976D2;
+  transform: translateY(-1px);
+}
+
 /* Customer Form */
 .customer-form-section {
   margin-bottom: 40px;
@@ -477,6 +698,17 @@ const resetForm = () => {
   background: #1976D2;
 }
 
+.download-btn {
+  background: #FF9800;
+  color: white;
+  padding: 6px 10px;
+  margin-right: 5px;
+}
+
+.download-btn:hover {
+  background: #F57C00;
+}
+
 .danger-btn {
   background: #f44336;
   color: white;
@@ -531,7 +763,7 @@ const resetForm = () => {
 }
 
 .actions-col {
-  width: 120px;
+  width: 150px;
   text-align: center;
 }
 
@@ -554,6 +786,53 @@ const resetForm = () => {
 
 .address-cell {
   max-width: 300px;
+}
+
+.address-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.address-tooltip {
+  position: relative;
+  cursor: pointer;
+}
+
+.address-tooltip:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+.tooltip-text {
+  visibility: hidden;
+  width: 300px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 8px 12px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 0.8rem;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent;
 }
 
 /* Popup Styles */
@@ -670,6 +949,43 @@ const resetForm = () => {
 
   .popup-footer {
     flex-direction: column;
+  }
+
+  /* Responsive Design for Filter */
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .filter-section {
+    justify-content: stretch;
+  }
+  
+  .filter-group {
+    width: 100%;
+  }
+  
+  .filter-input {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .results-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .actions-col {
+    width: 120px;
+  }
+
+  .address-cell {
+    max-width: 150px;
+  }
+
+  .tooltip-text {
+    width: 250px;
+    font-size: 0.7rem;
   }
 }
 </style>

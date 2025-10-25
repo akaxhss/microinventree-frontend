@@ -105,11 +105,48 @@
 
                 <!-- Suppliers List -->
                 <div class="suppliers-list-section">
-                    <h3 class="section-title">Existing Suppliers</h3>
-                    <div v-if="suppliers.length === 0" class="empty-state">
-                        No suppliers added yet. Add your first supplier above.
+                    <div class="section-header">
+                        <h3 class="section-title">Existing Suppliers</h3>
+                        
+                        <!-- Filter Section -->
+                        <div class="filter-section">
+                            <div class="filter-group">
+                                <label for="supplierFilter">Filter by Name</label>
+                                <input 
+                                    type="text" 
+                                    id="supplierFilter" 
+                                    v-model="supplierFilter" 
+                                    placeholder="Search supplier by name..." 
+                                    class="filter-input" 
+                                />
+                                <button 
+                                    v-if="supplierFilter" 
+                                    class="clear-filter-btn" 
+                                    @click="clearFilter"
+                                    title="Clear filter"
+                                >
+                                    ❌
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="filteredSuppliers.length === 0" class="empty-state">
+                        <div v-if="supplierFilter">
+                            No suppliers found matching "{{ supplierFilter }}"
+                        </div>
+                        <div v-else>
+                            No suppliers added yet. Add your first supplier above.
+                        </div>
                     </div>
                     <div v-else class="suppliers-table">
+                        <div class="results-info">
+                            Showing {{ filteredSuppliers.length }} of {{ suppliers.length }} suppliers
+                            <span v-if="supplierFilter">for "{{ supplierFilter }}"</span>
+                            <button class="btn download-all-btn" @click="downloadAllSuppliers" title="Download all suppliers as CSV">
+                                📥 Download All as CSV
+                            </button>
+                        </div>
                         <table class="data-table">
                             <thead>
                                 <tr>
@@ -124,7 +161,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="supplier in sortedSuppliers" :key="supplier.id"
+                                <tr v-for="supplier in filteredSuppliers" :key="supplier.id"
                                     :class="{ 'inactive-row': supplier.status === 'inactive' }">
                                     <td class="name-cell">
                                         <strong>{{ supplier.name }}</strong>
@@ -171,6 +208,9 @@
                                         <button class="btn edit-btn" @click="openEditPopup(supplier)" title="Edit">
                                             ✏️
                                         </button>
+                                        <button class="btn download-btn" @click="downloadSupplier(supplier)" title="Download Details">
+                                            📥
+                                        </button>
                                         <button class="btn danger-btn" @click="deleteSupplier(supplier.id)"
                                             title="Delete">
                                             🗑️
@@ -182,105 +222,105 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Edit Supplier Popup -->
-        <div v-if="showEditPopup" class="popup-overlay" @click="closeEditPopup">
-            <div class="popup-content" @click.stop>
-                <div class="popup-header">
-                    <h3>Edit Supplier</h3>
-                    <button class="close-btn" @click="closeEditPopup">✕</button>
-                </div>
-                <div class="popup-body">
-                    <div class="supplier-form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="editSupplierName">Supplier Name *</label>
-                                <input type="text" id="editSupplierName" v-model="editForm.name"
-                                    placeholder="Enter supplier name" class="form-input" />
-                            </div>
-                            <div class="form-group">
-                                <label for="editCompanyName">Company Name</label>
-                                <input type="text" id="editCompanyName" v-model="editForm.company_name"
-                                    placeholder="Company name" class="form-input" />
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="editSupplierEmail">Email</label>
-                                <input type="email" id="editSupplierEmail" v-model="editForm.email"
-                                    @blur="validateEditEmail" @input="clearEditEmailError"
-                                    placeholder="supplier@example.com" class="form-input"
-                                    :class="{ 'input-error': editEmailError }" />
-                                <div v-if="editEmailError" class="error-message">
-                                    ❌ {{ editEmailError }}
+            <!-- Edit Supplier Popup -->
+            <div v-if="showEditPopup" class="popup-overlay" @click="closeEditPopup">
+                <div class="popup-content" @click.stop>
+                    <div class="popup-header">
+                        <h3>Edit Supplier</h3>
+                        <button class="close-btn" @click="closeEditPopup">✕</button>
+                    </div>
+                    <div class="popup-body">
+                        <div class="supplier-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="editSupplierName">Supplier Name *</label>
+                                    <input type="text" id="editSupplierName" v-model="editForm.name"
+                                        placeholder="Enter supplier name" class="form-input" />
+                                </div>
+                                <div class="form-group">
+                                    <label for="editCompanyName">Company Name</label>
+                                    <input type="text" id="editCompanyName" v-model="editForm.company_name"
+                                        placeholder="Company name" class="form-input" />
                                 </div>
                             </div>
-                            <div class="form-group">
-                                <label for="editContactNumber">Contact Number</label>
-                                <input type="text" id="editContactNumber" v-model="editForm.contact_number"
-                                    placeholder="Phone number" class="form-input" />
-                            </div>
-                        </div>
 
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="editWebsite">Website</label>
-                                <input type="url" id="editWebsite" v-model="editForm.website"
-                                    @blur="validateEditWebsite" @input="clearEditWebsiteError"
-                                    placeholder="https://example.com" class="form-input"
-                                    :class="{ 'input-error': editWebsiteError }" />
-                                <div v-if="editWebsiteError" class="error-message">
-                                    ❌ {{ editWebsiteError }}
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="editSupplierEmail">Email</label>
+                                    <input type="email" id="editSupplierEmail" v-model="editForm.email"
+                                        @blur="validateEditEmail" @input="clearEditEmailError"
+                                        placeholder="supplier@example.com" class="form-input"
+                                        :class="{ 'input-error': editEmailError }" />
+                                    <div v-if="editEmailError" class="error-message">
+                                        ❌ {{ editEmailError }}
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="editContactNumber">Contact Number</label>
+                                    <input type="text" id="editContactNumber" v-model="editForm.contact_number"
+                                        placeholder="Phone number" class="form-input" />
                                 </div>
                             </div>
-                            <div class="form-group">
-                                <label for="editGstNumber">GST Number</label>
-                                <input type="text" id="editGstNumber" v-model="editForm.gst_number"
-                                    placeholder="GST number" class="form-input" />
-                            </div>
-                        </div>
 
-                        <!-- Address and Place Fields -->
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="editPlace">Place *</label>
-                                <input type="text" id="editPlace" v-model="editForm.place"
-                                    placeholder="Enter place/city" class="form-input" />
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="editWebsite">Website</label>
+                                    <input type="url" id="editWebsite" v-model="editForm.website"
+                                        @blur="validateEditWebsite" @input="clearEditWebsiteError"
+                                        placeholder="https://example.com" class="form-input"
+                                        :class="{ 'input-error': editWebsiteError }" />
+                                    <div v-if="editWebsiteError" class="error-message">
+                                        ❌ {{ editWebsiteError }}
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="editGstNumber">GST Number</label>
+                                    <input type="text" id="editGstNumber" v-model="editForm.gst_number"
+                                        placeholder="GST number" class="form-input" />
+                                </div>
                             </div>
-                            <div class="form-group full-width">
-                                <label for="editAddress">Address *</label>
-                                <textarea id="editAddress" v-model="editForm.address"
-                                    placeholder="Full address of the supplier" class="form-textarea"
-                                    rows="3"></textarea>
-                            </div>
-                        </div>
 
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="editStatus">Status</label>
-                                <select id="editStatus" v-model="editForm.status" class="form-input">
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                </select>
+                            <!-- Address and Place Fields -->
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="editPlace">Place *</label>
+                                    <input type="text" id="editPlace" v-model="editForm.place"
+                                        placeholder="Enter place/city" class="form-input" />
+                                </div>
+                                <div class="form-group full-width">
+                                    <label for="editAddress">Address *</label>
+                                    <textarea id="editAddress" v-model="editForm.address"
+                                        placeholder="Full address of the supplier" class="form-textarea"
+                                        rows="3"></textarea>
+                                </div>
                             </div>
-                            <div class="form-group full-width">
-                                <label for="editNote">Notes</label>
-                                <textarea id="editNote" v-model="editForm.note"
-                                    placeholder="Additional notes about the supplier" class="form-textarea"
-                                    rows="3"></textarea>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="editStatus">Status</label>
+                                    <select id="editStatus" v-model="editForm.status" class="form-input">
+                                        <option value="active">Active</option>
+                                        <option value="inactive">Inactive</option>
+                                    </select>
+                                </div>
+                                <div class="form-group full-width">
+                                    <label for="editNote">Notes</label>
+                                    <textarea id="editNote" v-model="editForm.note"
+                                        placeholder="Additional notes about the supplier" class="form-textarea"
+                                        rows="3"></textarea>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="popup-footer">
-                    <button class="btn cancel-btn" @click="closeEditPopup">
-                        ❌ Cancel
-                    </button>
-                    <button class="btn save-btn" @click="updateSupplier" :disabled="!canEditSave">
-                        💾 Update Supplier
-                    </button>
+                    <div class="popup-footer">
+                        <button class="btn cancel-btn" @click="closeEditPopup">
+                            ❌ Cancel
+                        </button>
+                        <button class="btn save-btn" @click="updateSupplier" :disabled="!canEditSave">
+                            💾 Update Supplier
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -298,6 +338,9 @@ const suppliers = ref([]);
 const isEditing = ref(false);
 const editingId = ref(null);
 const websiteError = ref("");
+
+// Filter state
+const supplierFilter = ref("");
 
 // Popup state
 const showEditPopup = ref(false);
@@ -335,6 +378,19 @@ const emailError = ref("");
 const editEmailError = ref("");
 const websiteEditError = ref("");
 const editWebsiteError = ref("");
+
+// Computed property for filtered suppliers
+const filteredSuppliers = computed(() => {
+    if (!supplierFilter.value) {
+        return sortedSuppliers.value;
+    }
+    
+    const filter = supplierFilter.value.toLowerCase();
+    return sortedSuppliers.value.filter(supplier => 
+        supplier.name.toLowerCase().includes(filter) ||
+        (supplier.company_name && supplier.company_name.toLowerCase().includes(filter))
+    );
+});
 
 // Computed property for save button
 const canSave = computed(() => {
@@ -482,6 +538,65 @@ const clearEditWebsiteError = () => {
     if (editWebsiteError.value) {
         editWebsiteError.value = "";
     }
+};
+
+// Clear filter
+const clearFilter = () => {
+    supplierFilter.value = "";
+};
+
+// Download single supplier details as JSON
+const downloadSupplier = (supplier) => {
+    const supplierData = JSON.stringify([supplier], null, 2);
+    const blob = new Blob([supplierData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `supplier_${supplier.name.replace(/\s+/g, '_')}_details.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+};
+
+// Download all suppliers as CSV
+const downloadAllSuppliers = () => {
+    if (suppliers.value.length === 0) {
+        alert('No suppliers to download!');
+        return;
+    }
+
+    // Convert suppliers data to CSV format
+    const headers = ['ID', 'Name', 'Email', 'Contact Number', 'Company Name', 'Website', 'GST Number', 'Place', 'Address', 'Status', 'Notes'];
+    
+    const csvData = suppliers.value.map(supplier => [
+        supplier.id,
+        `"${supplier.name}"`,
+        `"${supplier.email || ''}"`,
+        `"${supplier.contact_number || ''}"`,
+        `"${supplier.company_name || ''}"`,
+        `"${supplier.website || ''}"`,
+        `"${supplier.gst_number || ''}"`,
+        `"${supplier.place || ''}"`,
+        `"${(supplier.address || '').replace(/"/g, '""')}"`,
+        `"${supplier.status}"`,
+        `"${(supplier.note || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `all_suppliers_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 };
 
 // Load suppliers on mount
@@ -736,6 +851,111 @@ const resetForm = () => {
     padding-bottom: 8px;
 }
 
+/* Section Header with Filter */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.section-title {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+/* Filter Section */
+.filter-section {
+    display: flex;
+    align-items: flex-end;
+    gap: 15px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    position: relative;
+}
+
+.filter-group label {
+    font-weight: 600;
+    color: #555;
+    font-size: 0.9rem;
+    margin-bottom: 0;
+}
+
+.filter-input {
+    padding: 8px 35px 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: #fff;
+    transition: border-color 0.2s;
+    min-width: 250px;
+}
+
+.filter-input:focus {
+    outline: none;
+    border-color: #4CAF50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+}
+
+.clear-filter-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #999;
+    padding: 4px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.clear-filter-btn:hover {
+    background: #f0f0f0;
+    color: #666;
+}
+
+/* Results Info */
+.results-info {
+    margin-bottom: 15px;
+    color: #666;
+    font-size: 0.9rem;
+    font-style: italic;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border-left: 3px solid #4CAF50;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.download-all-btn {
+    background: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.download-all-btn:hover {
+    background: #1976D2;
+    transform: translateY(-1px);
+}
+
 /* Supplier Form */
 .supplier-form-section {
     margin-bottom: 40px;
@@ -872,6 +1092,17 @@ const resetForm = () => {
     background: #1976D2;
 }
 
+.download-btn {
+    background: #FF9800;
+    color: white;
+    padding: 6px 10px;
+    margin-right: 5px;
+}
+
+.download-btn:hover {
+    background: #F57C00;
+}
+
 .danger-btn {
     background: #f44336;
     color: white;
@@ -926,7 +1157,7 @@ const resetForm = () => {
 }
 
 .actions-col {
-    width: 120px;
+    width: 150px;
     text-align: center;
 }
 
@@ -1202,6 +1433,34 @@ const resetForm = () => {
 
     .popup-footer {
         flex-direction: column;
+    }
+
+    /* Responsive Design for Filter */
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .filter-section {
+        justify-content: stretch;
+    }
+    
+    .filter-group {
+        width: 100%;
+    }
+    
+    .filter-input {
+        min-width: auto;
+        width: 100%;
+    }
+
+    .results-info {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .actions-col {
+        width: 120px;
     }
 }
 </style>

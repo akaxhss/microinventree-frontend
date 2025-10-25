@@ -173,6 +173,7 @@ const selectedCustomer = ref("");
 // Data
 const customers = ref([]);
 const products = ref([]);
+const sizes = ref([]); // Add sizes array
 const packingItems = ref([createEmptyItem()]);
 
 // Loading state
@@ -191,6 +192,22 @@ const sortedCustomers = computed(() => {
 
 const sortedProducts = computed(() => {
     return [...products.value].sort((a, b) => a.name.localeCompare(b.name));
+});
+
+// Dynamic size headers from API
+const sizeHeaders = computed(() => {
+    return sizes.value.map(size => size.code);
+});
+
+const sortedSizes = computed(() => {
+    // Custom sorting logic for sizes
+    const sizeOrder = { 
+        'XS': 1, 'S': 2, 'M': 3, 'L': 4, 'XL': 5, 'XXL': 6, 'XXXL': 7,
+        'FREE SIZE': 8, 'S/M': 9, 'L/XL': 10, '2/3XL': 11
+    };
+    return [...sizes.value].sort((a, b) => {
+        return (sizeOrder[a.code] || 999) - (sizeOrder[b.code] || 999);
+    });
 });
 
 const sortedAvailableColors = (colors) => {
@@ -470,12 +487,22 @@ watch([selectedCustomer, packingItems], () => {
 onMounted(async () => {
     await Promise.all([
         loadCustomers(),
-        loadProducts()
+        loadProducts(),
+        loadSizes() // Load sizes on mount
     ]);
 
     // Check for existing draft on component mount
     checkForDraft();
 });
+
+const loadSizes = async () => {
+    try {
+        const res = await axios.get("/sizes/");
+        sizes.value = res.data;
+    } catch (error) {
+        console.error("Error loading sizes:", error);
+    }
+};
 
 const checkForDraft = () => {
     if (hasDraft.value) {
@@ -702,10 +729,25 @@ const getCustomerName = () => {
     return customer ? customer.name : `Customer #${selectedCustomer.value}`;
 };
 
+const getCustomerContact = () => {
+    const customer = customers.value.find(c => c.id == selectedCustomer.value);
+    return customer ? customer.contact : 'N/A';
+};
+
+const getCustomerPlace = () => {
+    const customer = customers.value.find(c => c.id == selectedCustomer.value);
+    return customer ? customer.place : 'N/A';
+};
+
+const getCustomerAddress = () => {
+    const customer = customers.value.find(c => c.id == selectedCustomer.value);
+    return customer ? customer.address : 'N/A';
+};
+
 const groupByProduct = (lines) => {
     const grouped = {};
-    // Include all sizes from both PDF and Excel
-    const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL", "FREE SIZE", "S/M", "L/XL", "2/3XL"];
+    // Use dynamic size headers from API
+    const dynamicSizeHeaders = sizeHeaders.value;
 
     lines.forEach((line) => {
         const product = line.product_name;
@@ -733,7 +775,7 @@ const groupByProduct = (lines) => {
         const totals = {};
         let grandTotal = 0;
 
-        sizeHeaders.forEach((size) => {
+        dynamicSizeHeaders.forEach((size) => {
             totals[size] = rows.reduce((acc, row) => acc + (row.sizes[size] || 0), 0);
             grandTotal += totals[size];
         });
@@ -745,118 +787,142 @@ const groupByProduct = (lines) => {
 };
 
 // Export Functions
-const exportExcel = (slipData) => {
-    const wb = XLSX.utils.book_new();
+const exportExcel = (data) => {
+  const wb = XLSX.utils.book_new();
+
+  data.forEach((slip) => {
     const wsData = [];
-    const grouped = groupByProduct(slipData.lines);
-    const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL", "FREE SIZE", "S/M", "L/XL", "2/3XL"];
+    const grouped = groupByProduct(slip.lines);
+    const customer = getCustomerDetails(slip.customer);
 
-    // Slip header
-    wsData.push(["Packing Slip Report"]);
-    wsData.push([`Slip Number: ${slipData.slip_number}`]);
-    wsData.push([`Date: ${formatDate(slipData.date)}`]);
-    wsData.push([`Customer: ${getCustomerName()}`]);
-    
-    // Add distributor details to match PDF
-    wsData.push([]);
-    wsData.push(["AS DISTRIBUTORS", "", "", "", "", "", "CUSTOMER DETAILS"]);
-    wsData.push(["3rd Floor, Golden tower, Venkatarachina", "", "", "", "", "", `Name: ${getCustomerName()}`]);
-    wsData.push(["Nevagoschemy, Katryanska, Kerala | PN: 6965 U1", "", "", "", "", "", `Contact: ${getCustomerContact()}`]);
-    wsData.push(["TEL: 0481 2425578 | Email: asdistributors2008@yahoo.com", "", "", "", "", "", `Place: ${getCustomerPlace()}`]);
-    wsData.push(["GSTIN: 32AAPFA6202P2B", "", "", "", "", "", `Address: ${getCustomerAddress()}`]);
-    
-    wsData.push([]);
-    
-    // Packing slip header to match PDF
+    // PACKING SLIP REPORT Header
     wsData.push(["PACKING SLIP"]);
-    wsData.push([`Slip #: ${slipData.slip_number}`, `Date: ${formatDate(slipData.date)}`, `No of Cartons: `]);
     wsData.push([]);
 
-    Object.keys(grouped).forEach((product, productIndex) => {
-        const group = grouped[product];
+    // 🏢 Distributor + 👤 Customer headers aligned
+    wsData.push([
+      "A.S.DISTRIBUTORS",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "CUSTOMER DETAILS"
+    ]);
 
-        // Product heading
-        wsData.push([product]);
+    // Distributor + Customer lines (like PDF layout)
+    wsData.push([
+      "1st FLOOR. GOLDEN TOWER",
+      "",
+      "",
+      "",
+      "",
+      "",
+      `Name: ${customer ? customer.name : "Unknown"}`
+    ]);
+    wsData.push([
+      "VEZHEKKATTUCHIRA, CHANGANACHERRY",
+      "",
+      "",
+      "",
+      "",
+      "",
+      `Address: ${customer ? customer.address || "N/A" : "N/A"}`
+    ]);
+    wsData.push([
+      "Kerala, PIN: 686101",
+      "",
+      "",
+      "",
+      "",
+      "",
+      `Place: ${customer ? customer.place || "N/A" : "N/A"}`
+    ]);
+    wsData.push([
+      "Ph: 04812955578  Email: asdistributors2008@yahoo.com",
+      "",
+      "",
+      "",
+      "",
+      "",
+      `Contact: ${customer ? customer.contact || "N/A" : "N/A"}`
+    ]);
+    wsData.push([
+      "GSTIN: 32AAPFA6202P2B"
+    ]);
 
-        // Header row with all sizes matching PDF
-        wsData.push(["SN", "Color", "S", "M", "L", "XL", "XXL", "XXXL", "FREE SIZE", "S/M", "L/XL", "2/3XL", "Total"]);
+    wsData.push([]);
 
-        // Data rows
-        group.rows.forEach((row, rowIndex) => {
-            wsData.push([
-                (rowIndex + 1).toString(),
-                row.color,
-                row.sizes.S || 0,
-                row.sizes.M || 0,
-                row.sizes.L || 0,
-                row.sizes.XL || 0,
-                row.sizes.XXL || 0,
-                row.sizes.XXXL || 0,
-                row.sizes["FREE SIZE"] || 0,
-                row.sizes["S/M"] || 0,
-                row.sizes["L/XL"] || 0,
-                row.sizes["2/3XL"] || 0,
-                row.total
-            ]);
-        });
+    // Slip Information
+    const cartons = Object.keys(grouped).length;
+    wsData.push([`Slip Number: ${slip.slip_number}`]);
+    wsData.push([`Date: ${formatDate(slip.date)}`]);
+    wsData.push([`No of Cartons: `]);
+    wsData.push([`Created At: ${formatDateTime(slip.created_at)}`]);
+    wsData.push([]);
 
-        // Grand total row
+    // Products and Quantity Data
+    Object.keys(grouped).forEach((product) => {
+      const group = grouped[product];
+
+      // Product Title
+      wsData.push([product]);
+
+      // Table header row (dynamic)
+      wsData.push(["Color", ...sizeHeaders.value, "Total"]);
+
+      // Product rows
+      group.rows.forEach((row) => {
         wsData.push([
-            "",
-            "Grand Total",
-            group.totals.S || 0,
-            group.totals.M || 0,
-            group.totals.L || 0,
-            group.totals.XL || 0,
-            group.totals.XXL || 0,
-            group.totals.XXXL || 0,
-            group.totals["FREE SIZE"] || 0,
-            group.totals["S/M"] || 0,
-            group.totals["L/XL"] || 0,
-            group.totals["2/3XL"] || 0,
-            group.grandTotal
+          row.color,
+          ...sizeHeaders.value.map(size => row.sizes[size] || 0),
+          row.total
         ]);
+      });
 
-        wsData.push([]);
+      // Grand Total row
+      wsData.push([
+        "Grand Total",
+        ...sizeHeaders.value.map(size => group.totals[size]),
+        group.grandTotal
+      ]);
+
+      wsData.push([]);
     });
 
-    // Add summary section to match PDF
-    const totalQuantity = Object.values(grouped).reduce((sum, group) => sum + group.grandTotal, 0);
+    // Overall Summary Section
     const totalProducts = Object.keys(grouped).length;
-    
+    const totalItems = Object.values(grouped).reduce((sum, g) => sum + g.grandTotal, 0);
+
     wsData.push(["SUMMARY"]);
-    wsData.push([`Total Products: ${totalProducts}`, `Total Items: ${totalQuantity}`]);
-    wsData.push([]);
-    wsData.push(["Packed By: ___________________", "Checked By: ___________________"]);
+    wsData.push([`Total Products: ${totalProducts}`]);
+    wsData.push([`Total Items: ${totalItems}`]);
 
+    //  Convert data to Excel Sheet
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    
-    // Set column widths for better formatting
-    const colWidths = [
-        { wch: 5 },  // SN
-        { wch: 15 }, // Color
-        { wch: 6 },  // S
-        { wch: 6 },  // M
-        { wch: 6 },  // L
-        { wch: 6 },  // XL
-        { wch: 8 },  // XXL
-        { wch: 8 },  // XXXL
-        { wch: 10 }, // FREE SIZE
-        { wch: 8 },  // S/M
-        { wch: 8 },  // L/XL
-        { wch: 8 },  // 2/3XL
-        { wch: 8 }   // Total
-    ];
-    ws['!cols'] = colWidths;
 
-    XLSX.utils.book_append_sheet(wb, ws, `Slip_${slipData.slip_number}`);
-    XLSX.writeFile(wb, `PackingSlip_${slipData.slip_number}.xlsx`);
+    //  Dynamic Column Widths
+    const colWidths = [
+      { wch: 25 }, // Color column
+      ...sizeHeaders.value.map(() => ({ wch: 10 })), // Size columns
+      { wch: 12 } // Total Qty
+    ];
+    ws["!cols"] = colWidths;
+
+    //  Append to workbook
+    XLSX.utils.book_append_sheet(
+      wb,
+      ws,
+      `Slip_${slip.slip_number.substring(0, 25)}`
+    );
+  });
+
+  XLSX.writeFile(wb, "Packing_Slip_Report.xlsx");
 };
+
 
 const exportPDF = (data) => {
     const doc = new jsPDF();
-
-    // Handle both single slip and array of slips
     const slips = Array.isArray(data) ? data : [data];
 
     slips.forEach((slip, index) => {
@@ -864,246 +930,208 @@ const exportPDF = (data) => {
 
         const customer = customers.value.find(c => c.id == slip.customer);
         const grouped = groupByProduct(slip.lines);
+        const dynamicSizeHeaders = sizeHeaders.value;
 
-        // Set smaller default font size
-        doc.setFontSize(8);
+        // Title
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.text("PACKING SLIP", 105, 15, { align: "center" });
+        doc.setDrawColor(150);
+        doc.setLineWidth(0.4);
+        doc.line(20, 18, 190, 18);
 
-        // Distributor details (left side - compact)
-        doc.setFont(undefined, 'bold');
-        doc.text("AS DISTRIBUTORS", 20, 15);
+        // Distributor Details
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text("A.S.DISTRIBUTORS", 20, 25);
 
-        doc.setFont(undefined, 'normal');
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
 
-        // Distributor info with proper spacing
-        const distributorLines = [
-            "3rd Floor, Golden tower, Venkatarachina",
-            "Nevagoschemy, Katryanska, Kerala | PN: 6965 U1",
-            "TEL: 0481 2425578 | Email: asdistributors2008@yahoo.com",
+        const addressLines = [
+            "1st FLOOR. GOLDEN TOWER",
+            "VEZHEKKATTUCHIRA, CHANGANACHERRY",
+            "Kerala, PIN: 686101",
+            "Ph: 04812955578  Email: asdistributors2008@yahoo.com",
             "GSTIN: 32AAPFA6202P2B"
         ];
-
-        distributorLines.forEach((line, i) => {
-            doc.text(line, 20, 22 + (i * 4));
+        addressLines.forEach((line, i) => {
+            doc.text(line, 20, 30 + (i * 3.5));
         });
 
-        // Customer details (right side - compact)
-        doc.setFont(undefined, 'bold');
-        doc.text("CUSTOMER DETAILS", 120, 15);
-        doc.setFont(undefined, 'normal');
+        // Customer Details (Smart wrapping)
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text("CUSTOMER DETAILS", 130, 25);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
 
-        let customerY = 22;
-
+        let customerY = 30;
         if (customer) {
-            // Customer info with proper line breaks
-            const nameContact = `Name: ${customer.name || 'N/A'} | Contact: ${customer.contact || 'N/A'}`;
-            const nameContactWidth = doc.getTextWidth(nameContact);
-
-            if (nameContactWidth < 75) {
-                doc.text(nameContact, 120, customerY);
-                customerY += 4;
-            } else {
-                doc.text(`Name: ${customer.name || 'N/A'}`, 120, customerY);
-                customerY += 4;
-                doc.text(`Contact: ${customer.contact || 'N/A'}`, 120, customerY);
-                customerY += 4;
-            }
-
-            doc.text(`Place: ${customer.place || 'N/A'}`, 120, customerY);
+            doc.text(`Name: ${customer.name || "N/A"}`, 130, customerY);
             customerY += 4;
 
-            // Address with proper line wrapping
-            const address = customer.address || 'N/A';
-            const addressLines = doc.splitTextToSize(`Address: ${address}`, 70);
-            addressLines.forEach((line, i) => {
-                doc.text(line, 120, customerY + (i * 4));
+            let addressText = `Address: ${customer.address || "N/A"}`;
+            let commaCount = 0;
+            addressText = addressText.replace(/,/g, (match) => {
+                commaCount++;
+                return commaCount % 3 === 0 ? ",\n" : ",";
             });
-            customerY += (addressLines.length * 4);
+
+            const addressLines = doc.splitTextToSize(addressText, 65);
+            addressLines.forEach((line, i) => {
+                doc.text(line.trim(), 130, customerY + (i * 3.5));
+            });
+
+            customerY += (addressLines.length * 3.5) + 2;
+
+            const locationText = `Place: ${customer.place || "N/A"}`;
+            const locationLines = doc.splitTextToSize(locationText, 65);
+            locationLines.forEach((line, i) => {
+                doc.text(line.trim(), 130, customerY + (i * 3.5));
+            });
         } else {
-            doc.text("Name: Unknown", 120, customerY);
-            customerY += 4;
-            doc.text("Contact: N/A", 120, customerY);
-            customerY += 4;
-            doc.text("Place: N/A", 120, customerY);
-            customerY += 4;
-            doc.text("Address: N/A", 120, customerY);
+            const fallback = [
+                "Name: Unknown",
+                "Address: N/A",
+                "Location: N/A"
+            ];
+            fallback.forEach((line, i) => doc.text(line, 130, customerY + (i * 3.5)));
         }
 
-        // Horizontal separator line
-        const slipY = 42;
-        doc.setDrawColor(200, 200, 200);
-        doc.setLineWidth(0.3);
-        doc.line(15, slipY - 3, 195, slipY - 3);
+        // Separator
+        const slipY = 53;
+        doc.setDrawColor(180);
+        doc.line(15, slipY, 195, slipY);
 
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'bold');
-        doc.text("PACKING SLIP", 100, slipY, { align: "center" });
+        // Slip Info
+        const cartons = Object.keys(grouped).length;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        const infoY = slipY + 5;
+        doc.text(`Slip #: ${slip.slip_number || "N/A"}`, 20, infoY);
+        doc.text(`Date: ${formatDate(slip.date) || "N/A"}`, 90, infoY);
+        doc.text(`No of Cartons: `, 160, infoY);
+        doc.line(15, infoY + 2, 195, infoY + 2);
 
-        // Calculate number of cartons (number of products)
-        const numberOfCartons = Object.keys(grouped).length;
-
-        // Slip information - compact single line (removed Created, added No of Cartons)
-        doc.setFontSize(7);
-        doc.setFont(undefined, 'normal');
-        const slipInfoY = slipY + 5;
-        doc.text(`Slip #: ${slip.slip_number || 'N/A'}`, 20, slipInfoY);
-        doc.text(`Date: ${formatDate(slip.date) || 'N/A'}`, 90, slipInfoY);
-        doc.text(`No of Cartons: `, 150, slipInfoY);
-
-        // Another separator line
-        doc.line(15, slipInfoY + 3, 195, slipInfoY + 3);
-
-        let y = slipInfoY + 10;
-
-        Object.keys(grouped).forEach((product, productIndex) => {
+        // Table Section
+        let y = infoY + 10;
+        Object.keys(grouped).forEach((product, idx) => {
             const group = grouped[product];
 
-            // Check if we need a new page
             if (y > 250) {
                 doc.addPage();
                 y = 20;
             }
 
-            // Product title NO SPACE after this
-            doc.setFontSize(7);
-            doc.setFont(undefined, 'bold');
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8);
             doc.text(product, 20, y);
-            y += 1; // Small space after title header 
+            y += 3;
 
-            // Table headers with better column widths
-            doc.setFontSize(7);
-            const headers = ["SN", "Color", "S", "M", "L", "XL", "XXL", "XXXL", "FREE SIZE", "S/M", "L/XL", "2/3XL", "Total"];
+            // Header
+            const headers = ["SN", "Color", ...dynamicSizeHeaders, "Total"];
+            const baseWidths = { SN: 8, Color: 25, Total: 12 };
+            const maxWidth = 190 - (baseWidths.SN + baseWidths.Color + baseWidths.Total + 10);
+            const dynamicWidth = Math.max(7, Math.min(15, maxWidth / dynamicSizeHeaders.length));
+            const columnWidths = [
+                baseWidths.SN,
+                baseWidths.Color,
+                ...dynamicSizeHeaders.map(() => dynamicWidth),
+                baseWidths.Total
+            ];
+            const totalWidth = columnWidths.reduce((a, b) => a + b, 0);
 
-            // Draw table header with adjusted column widths
-            let x = 20;
-            const columnWidths = [8, 28, 8, 8, 8, 8, 10, 12, 14, 10, 12, 12, 12];
-
-            // Header background
+            // Header Bar
             doc.setFillColor(59, 130, 246);
-            doc.rect(20, y, 170, 5, 'F');
+            doc.rect(20, y, totalWidth, 6, "F");
+            doc.setTextColor(255);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(6.5);
 
-            // Header text
-            doc.setTextColor(255, 255, 255);
-            doc.setFont(undefined, 'bold');
-
-            headers.forEach((header, i) => {
-                doc.text(header, x + 1, y + 3.5);
-                x += columnWidths[i];
+            let x = 20;
+            headers.forEach((h, i) => {
+                const colWidth = columnWidths[i];
+                const txtWidth = doc.getTextWidth(h);
+                const xOffset = (colWidth - txtWidth) / 2;
+                doc.text(h, x + xOffset, y + 4);
+                x += colWidth;
             });
 
-            y += 5;
-            doc.setTextColor(0, 0, 0);
-            doc.setFont(undefined, 'normal');
+            y += 6;
+            doc.setTextColor(0);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7.5);
 
-            // Table rows
+            // Table Rows
             group.rows.forEach((row, rowIndex) => {
-                // Check if we need a new page
-                if (y > 270) {
-                    doc.addPage();
-                    y = 20;
-
-                    // Redraw header on new page
-                    doc.setFillColor(59, 130, 246);
-                    doc.rect(20, y, 170, 5, 'F');
-                    doc.setTextColor(255, 255, 255);
-                    doc.setFont(undefined, 'bold');
-
-                    x = 20;
-                    headers.forEach((header, i) => {
-                        doc.text(header, x + 1, y + 3.5);
-                        x += columnWidths[i];
-                    });
-
-                    y += 5;
-                    doc.setTextColor(0, 0, 0);
-                    doc.setFont(undefined, 'normal');
+                if (rowIndex % 2 === 0) {
+                    doc.setFillColor(245);
+                    doc.rect(20, y, totalWidth, 6, "F");
                 }
 
                 x = 20;
                 const rowData = [
                     (rowIndex + 1).toString(),
                     row.color,
-                    row.sizes.S || 0,
-                    row.sizes.M || 0,
-                    row.sizes.L || 0,
-                    row.sizes.XL || 0,
-                    row.sizes.XXL || 0,
-                    row.sizes.XXXL || 0,
-                    row.sizes["FREE SIZE"] || 0,
-                    row.sizes["S/M"] || 0,
-                    row.sizes["L/XL"] || 0,
-                    row.sizes["2/3XL"] || 0,
+                    ...dynamicSizeHeaders.map(size => row.sizes[size] || 0),
                     row.total.toString()
                 ];
 
-                // Alternate row background
-                if (rowIndex % 2 === 0) {
-                    doc.setFillColor(245, 245, 245);
-                    doc.rect(20, y, 170, 5, 'F');
-                }
-
                 rowData.forEach((cell, i) => {
-                    doc.text(cell.toString(), x + 1, y + 3.5);
-                    x += columnWidths[i];
+                    const colWidth = columnWidths[i];
+                    const txtWidth = doc.getTextWidth(String(cell));
+                    const xOffset = Math.max(1, (colWidth - txtWidth) / 2);
+                    doc.text(String(cell), x + xOffset, y + 4);
+                    x += colWidth;
                 });
-
-                y += 5;
+                y += 6;
             });
 
-            // Grand total row
+            // Grand Total
             y += 2;
-            doc.setFillColor(220, 220, 220);
-            doc.rect(20, y, 170, 5, 'F');
-            doc.setFont(undefined, 'bold');
-
+            doc.setFillColor(230, 230, 230);
+            doc.rect(20, y, totalWidth, 7, "F");
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8);
             x = 20;
-            const grandTotalData = [
+            const totalData = [
                 "",
                 "Grand Total",
-                group.totals.S || 0,
-                group.totals.M || 0,
-                group.totals.L || 0,
-                group.totals.XL || 0,
-                group.totals.XXL || 0,
-                group.totals.XXXL || 0,
-                group.totals["FREE SIZE"] || 0,
-                group.totals["S/M"] || 0,
-                group.totals["L/XL"] || 0,
-                group.totals["2/3XL"] || 0,
+                ...dynamicSizeHeaders.map(size => group.totals[size] || 0),
                 group.grandTotal.toString()
             ];
-
-            grandTotalData.forEach((cell, i) => {
-                doc.text(cell.toString(), x + 1, y + 3.5);
-                x += columnWidths[i];
+            totalData.forEach((cell, i) => {
+                const colWidth = columnWidths[i];
+                const txtWidth = doc.getTextWidth(String(cell));
+                const xOffset = (colWidth - txtWidth) / 2;
+                doc.text(String(cell), x + xOffset, y + 5);
+                x += colWidth;
             });
 
-            doc.setFont(undefined, 'normal');
-
-            if (productIndex < Object.keys(grouped).length - 1) {
-                y += 10; // Space between product sections
-            } else {
-                y += 8; // Less space after last product
-            }
+            y += 10;
         });
 
-        // Footer summary - compact
-        const totalQuantity = Object.values(grouped).reduce((sum, group) => sum + group.grandTotal, 0);
+        // Footer Summary (Aligned and Styled)
         const totalProducts = Object.keys(grouped).length;
+        const totalItems = Object.values(grouped).reduce((a, g) => a + g.grandTotal, 0);
 
-        doc.setFontSize(8);
-        doc.setFont(undefined, 'bold');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
         doc.text(`Total Products: ${totalProducts}`, 20, y);
-        doc.text(`Total Items: ${totalQuantity}`, 120, y);
+        doc.setFontSize(10);
+        doc.text(`Total Items: ${totalItems}`, 185, y, { align: "right" }); // right-aligned
 
-        y += 8;
-
-        // Signature lines - compact
+        // Footer Lines
+        y += 10;
+        doc.setFontSize(7);
         doc.text("Packed By: ___________________", 20, y);
         doc.text("Checked By: ___________________", 120, y);
     });
 
-    doc.save("PackingSlips_Report.pdf");
+    doc.save("Packing_Slip.pdf");
 };
+
 
 // Main save and export functions
 const savePackingSlip = async () => {
