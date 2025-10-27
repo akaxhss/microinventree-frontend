@@ -689,11 +689,47 @@ const validateQuantity = (idx) => {
     }
 };
 
-const addNewRow = () => {
+const addNewRow = async () => {
     // Only add new row if the last row is not empty
     const lastItem = packingItems.value[packingItems.value.length - 1];
     if (lastItem.productId || lastItem.colorId || lastItem.sizeId || lastItem.quantity > 1) {
-        packingItems.value.push(createEmptyItem());
+        const newRow = createEmptyItem();
+        
+        // Copy the product from the previous row
+        if (lastItem.productId) {
+            newRow.productId = lastItem.productId;
+            
+            // Load available colors for the auto-filled product
+            try {
+                const res = await axios.get(`/available-stock/?product_id=${lastItem.productId}`);
+                newRow.stockData = res.data;
+
+                // Extract unique colors 
+                const colorMap = new Map();
+
+                newRow.stockData.forEach(stock => {
+                    if (colorMap.has(stock.color_id)) {
+                        // Add to existing color total
+                        colorMap.get(stock.color_id).total_quantity += stock.available_quantity;
+                    } else {
+                        // Create new color entry
+                        colorMap.set(stock.color_id, {
+                            color_id: stock.color_id,
+                            color_name: stock.color_name,
+                            total_quantity: stock.available_quantity
+                        });
+                    }
+                });
+
+                newRow.availableColors = Array.from(colorMap.values());
+            } catch (error) {
+                console.error("Error loading available stock for auto-filled product:", error);
+                newRow.availableColors = [];
+                newRow.stockData = [];
+            }
+        }
+        
+        packingItems.value.push(newRow);
 
         // Scroll to the new row
         nextTick(() => {

@@ -18,12 +18,18 @@
 
                 <!-- PEOPLE -->
                 <div class="menu-section">People</div>
-                <router-link to="/customers" class="menu-item" active-class="active" @click="handleMenuClick('/customers')">
-                    👤 Customers
-                </router-link>
-                <router-link to="/suppliers" class="menu-item" active-class="active" @click="handleMenuClick('/suppliers')">
-                    🏭 Suppliers
-                </router-link>
+                <router-link to="/listviewcustomer" class="menu-item" active-class="active" @click="handleMenuClick('/customers')">
+     👤 List Customers
+</router-link>
+<router-link to="/add-customer" class="menu-item" active-class="active" @click="handleMenuClick('/add-customer')">
+    ➕ Add Customers
+</router-link>
+               <router-link to="/listviewsupplier" class="menu-item" active-class="active" @click="handleMenuClick('/suppliers')">
+    🏭 List Suppliers
+</router-link>
+<router-link to="/add-supplier" class="menu-item" active-class="active" @click="handleMenuClick('/suppliers')">
+    ➕ Add Supplier
+</router-link>
 
                 <!-- PACKING SLIP -->
                 <div class="menu-section">Packing Slip</div>

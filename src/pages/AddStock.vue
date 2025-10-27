@@ -40,6 +40,27 @@
                     </div>
                 </div>
 
+                <!-- Invoice Section -->
+                <div class="form-row invoice-section">
+                    <div class="form-group invoice-number-box">
+                        <label>Invoice Number <span class="required">*</span></label>
+                        <input type="text" v-model="invoiceNumber" placeholder="Enter Invoice Number"
+                            class="invoice-input" :disabled="loading" />
+                    </div>
+                    <div class="form-group date-picker-box">
+                        <label>Invoice Date <span class="required">*</span></label>
+                        <el-date-picker
+                            v-model="invoiceDate"
+                            type="date"
+                            placeholder="Select invoice date"
+                            format="DD/MM/YYYY"
+                            value-format="YYYY-MM-DD"
+                            :disabled="loading"
+                            class="invoice-input"
+                        />
+                    </div>
+                </div>
+
                 <!-- Stock Table -->
                 <div class="table-wrapper">
                     <table class="stock-table">
@@ -98,27 +119,6 @@
                         </tbody>
                     </table>
                 </div>
-
-                <!-- Invoice Section -->
-                <div class="form-row invoice-section">
-    <div class="form-group invoice-number-box">
-        <label>Invoice Number <span class="required">*</span></label>
-        <input type="text" v-model="invoiceNumber" placeholder="Enter Invoice Number"
-            class="invoice-input" :disabled="loading" />
-    </div>
-    <div class="form-group date-picker-box">
-        <label>Invoice Date <span class="required">*</span></label>
-        <el-date-picker
-            v-model="invoiceDate"
-            type="date"
-            placeholder="Select invoice date"
-            format="DD/MM/YYYY"
-            value-format="YYYY-MM-DD"
-            :disabled="loading"
-            class="invoice-input"
-        />
-    </div>
-</div>
 
                 <!-- Buttons -->
                 <div class="form-actions">

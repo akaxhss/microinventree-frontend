@@ -21,6 +21,10 @@ import ViewPackingslips from '../pages/ViewPackingslip.vue'
 import ListOfStockByInvoice from '../pages/child/ListOfStock-iteamsByInvoiceNo.vue'
 import EditOfStockByInvoice from '../pages/child/EditStock-itemsByInvoice.vue'
 import ViewEditByInvoice from '../pages/View-Edit-ByInvoice.vue'
+import ListViewSuppliers from '@/pages/ListViewSuppliers.vue'
+import AddSuppliers from '@/pages/AddSuppliers.vue'
+import ListViewCustomer from '@/pages/ListViewCustomer.vue'
+import AddCustomer from '@/pages/AddCustomer.vue'
 
 
 
@@ -47,6 +51,10 @@ const routes = [
   { path: '/viewstockbyinvoice', component: ListOfStockByInvoice },
   { path: '/editsockbyinvoice', component: EditOfStockByInvoice },
     { path: '/vieweditbyinvoice', component: ViewEditByInvoice },
+    { path: '/listviewsupplier', component: ListViewSuppliers },
+    { path: '/add-supplier', component: AddSuppliers },
+    { path: '/listviewcustomer', component: ListViewCustomer },
+    { path: '/add-customer', component: AddCustomer },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })
