@@ -73,12 +73,12 @@
     <div v-if="packingSlips.length" class="slips-container">
       <div class="results-header">
         <h3> Packing Slips ({{ showPagination ? totalCount : packingSlips.length }})</h3>
-        <div class="results-summary">
-          Total Items: {{ totalItems }}
-          <span v-if="showPagination" class="pagination-info">
-            • Page {{ currentPage }} of {{ totalPages }}
-          </span>
-        </div>
+       <div class="results-summary">
+  Total Packing Slips: {{ totalItems }}
+  <span v-if="showPagination" class="pagination-info">
+    • Page {{ currentPage }} of {{ totalPages }}
+  </span>
+</div>
       </div>
 
       <div class="slips-list">
@@ -303,11 +303,14 @@ const sortedSizes = computed(() => {
 });
 
 const totalItems = computed(() => {
-  return packingSlips.value.reduce((total, slip) => {
-    return total + slip.lines.reduce((sum, line) => sum + line.quantity, 0);
-  }, 0);
+  
+  if (showPagination.value && totalCount.value > 0) {
+    return totalCount.value;
+  }
+  
+ 
+  return packingSlips.value.length;
 });
-
 const showPagination = computed(() => {
   return !selectedCustomerId.value && !singleDate.value && !startDate.value && !endDate.value;
 });

@@ -68,7 +68,7 @@
             </table>
           </div>
 
-          <!-- Pagination -->
+          <!-- Enhanced Pagination -->
           <div class="pagination-container">
             <div class="pagination-info">
               Showing {{ (currentPage - 1) * pageSize + 1 }}-{{ Math.min(currentPage * pageSize, totalCount) }} of {{
@@ -76,15 +76,29 @@
             </div>
             <div class="pagination-controls">
               <button class="pagination-btn" :disabled="!previousPage || loading" @click="loadPage(previousPage)">
-                Previous
+                ← Previous
               </button>
+
+              <div class="page-numbers">
+                <button 
+                  v-for="page in visiblePages" 
+                  :key="page"
+                  class="page-number"
+                  :class="{ active: page === currentPage }"
+                  @click="goToPage(page)"
+                  :disabled="loading"
+                >
+                  {{ page }}
+                </button>
+                <span v-if="hasMorePages" class="page-ellipsis">...</span>
+              </div>
 
               <div class="page-info">
                 Page {{ currentPage }} of {{ totalPages }}
               </div>
 
               <button class="pagination-btn" :disabled="!nextPage || loading" @click="loadPage(nextPage)">
-                Next
+                Next →
               </button>
             </div>
           </div>
@@ -128,12 +142,38 @@ const totalPages = computed(() => {
   return Math.ceil(totalCount.value / pageSize);
 });
 
+const visiblePages = computed(() => {
+  const pages = [];
+  const maxVisiblePages = 5;
+  let startPage = Math.max(1, currentPage.value - Math.floor(maxVisiblePages / 2));
+  let endPage = Math.min(totalPages.value, startPage + maxVisiblePages - 1);
+  
+  // Adjust start page if we're near the end
+  startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  
+  for (let i = startPage; i <= endPage; i++) {
+    pages.push(i);
+  }
+  return pages;
+});
+
+const hasMorePages = computed(() => {
+  return visiblePages.value[visiblePages.value.length - 1] < totalPages.value;
+});
+
 // Methods
 const fetchActivityLogs = async (url = null) => {
   try {
     loading.value = true;
 
-    const apiUrl = url || "activity-logs/";
+    // Build the URL with page size parameter
+    let apiUrl;
+    if (url) {
+      apiUrl = url;
+    } else {
+      apiUrl = `activity-logs/?page_size=${pageSize}`;
+    }
+
     const res = await axios.get(apiUrl);
 
     activityLogs.value = res.data.results;
@@ -141,13 +181,13 @@ const fetchActivityLogs = async (url = null) => {
     nextPage.value = res.data.next;
     previousPage.value = res.data.previous;
 
-    // Extract current page from next/previous URLs or default to 1
+    // Extract current page from next/previous URLs
     if (res.data.next) {
       const urlParams = new URLSearchParams(new URL(res.data.next).search);
-      currentPage.value = parseInt(urlParams.get('page')) - 1;
+      currentPage.value = parseInt(urlParams.get('page')) - 1 || 1;
     } else if (res.data.previous) {
       const urlParams = new URLSearchParams(new URL(res.data.previous).search);
-      currentPage.value = parseInt(urlParams.get('page')) + 1;
+      currentPage.value = parseInt(urlParams.get('page')) + 1 || 1;
     } else {
       currentPage.value = 1;
     }
@@ -163,6 +203,29 @@ const fetchActivityLogs = async (url = null) => {
 const loadPage = (url) => {
   if (!url || loading.value) return;
   fetchActivityLogs(url);
+  scrollToTop();
+};
+
+const goToPage = (page) => {
+  if (page === currentPage.value || loading.value) return;
+  
+  const url = `activity-logs/?page=${page}&page_size=${pageSize}`;
+  loadPage(url);
+  scrollToTop();
+};
+
+// Add this scroll function
+const scrollToTop = () => {
+  // Scroll to the top of the logs container
+  const container = document.querySelector('.activity-logs-container');
+  if (container) {
+    container.scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'start' 
+    });
+  }
+  
+  
 };
 
 const getActionClass = (action) => {
@@ -290,7 +353,6 @@ onMounted(() => {
   border-collapse: collapse;
   font-size: 0.875rem;
   table-layout: fixed;
-  /* Added to control column widths */
 }
 
 .logs-table th {
@@ -308,7 +370,6 @@ onMounted(() => {
   border-bottom: 1px solid #f1f5f9;
   vertical-align: top;
   word-wrap: break-word;
-  /* Ensure long words break */
 }
 
 .log-row:hover {
@@ -330,7 +391,6 @@ onMounted(() => {
 
 .details-column {
   width: 300px;
-  /* Fixed width for details column */
   min-width: 250px;
   max-width: 300px;
 }
@@ -418,17 +478,13 @@ onMounted(() => {
   color: #6b7280;
   font-size: 0.75rem;
   word-break: break-word;
-  /* Break long resource names */
 }
 
 /* Details Container - Fixed constraints */
 .details-container {
   max-height: 150px;
-  /* Maximum height before scrolling */
   overflow-y: auto;
-  /* Vertical scroll for many items */
   overflow-x: hidden;
-  /* No horizontal scroll */
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   padding: 8px;
@@ -468,10 +524,8 @@ onMounted(() => {
   font-size: 0.7rem;
   text-align: left;
   word-break: break-word;
-  /* Break long values */
   flex: 1;
   max-width: 180px;
-  /* Limit value width */
   overflow: hidden;
 }
 
@@ -513,7 +567,7 @@ onMounted(() => {
   background: #94a3b8;
 }
 
-/* Pagination Styles */
+/* Enhanced Pagination Styles */
 .pagination-container {
   display: flex;
   justify-content: space-between;
@@ -521,6 +575,8 @@ onMounted(() => {
   padding: 1.5rem;
   border-top: 1px solid #e5e7eb;
   background: #f8fafc;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .pagination-info {
@@ -532,6 +588,47 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-number {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  min-width: 40px;
+}
+
+.page-number:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.page-number.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.page-number:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-ellipsis {
+  color: #6b7280;
+  padding: 0 0.5rem;
 }
 
 .pagination-btn {
@@ -542,6 +639,7 @@ onMounted(() => {
   cursor: pointer;
   font-weight: 500;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .pagination-btn:hover:not(:disabled) {
@@ -558,6 +656,7 @@ onMounted(() => {
   color: #6b7280;
   font-size: 0.875rem;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 /* Loading State */
@@ -638,6 +737,11 @@ onMounted(() => {
     gap: 1rem;
     text-align: center;
   }
+
+  .pagination-controls {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
 }
 
 @media (max-width: 768px) {
@@ -654,6 +758,16 @@ onMounted(() => {
 
   .detail-value {
     max-width: 100px;
+  }
+
+  .page-numbers {
+    gap: 0.25rem;
+  }
+
+  .page-number {
+    padding: 0.4rem 0.6rem;
+    min-width: 35px;
+    font-size: 0.8rem;
   }
 }
 </style>
