@@ -11,7 +11,6 @@
           <div class="header-title">
             <span>Stock Inventory</span>
           </div>
-
         </div>
 
         <!-- Success/Error Messages -->
@@ -137,7 +136,8 @@
 
         <!-- Results Count -->
         <div class="results-count">
-          Showing {{ filteredStock.length }} of {{ stock.length }} stock items
+          Showing {{ paginatedStock.length }} of {{ filteredStock.length }} stock items 
+          <span v-if="totalPages > 1">• Page {{ currentPage }} of {{ totalPages }}</span>
         </div>
 
         <!-- Table Card -->
@@ -155,7 +155,7 @@
                 </tr>
               </thead>
               <tbody class="table-body">
-                <tr v-if="filteredStock.length === 0">
+                <tr v-if="paginatedStock.length === 0">
                   <td colspan="6" class="text-center text-gray-500 py-8">
                     <div class="no-results">
                       <svg class="no-results-icon" viewBox="0 0 24 24" width="48" height="48">
@@ -168,13 +168,12 @@
                     </div>
                   </td>
                 </tr>
-                <tr v-for="item in filteredStock" :key="item.id">
+                <tr v-for="item in paginatedStock" :key="item.id">
                   <td class="table-checkbox">
                     <span class="id-badge">#{{ item.id }}</span>
                   </td>
                   <td class="product-cell">
                     <div class="product-info">
-
                       <div class="product-details">
                         <strong class="product-name">{{ item.product?.name || '-' }}</strong>
                         <span class="product-sku" v-if="item.product?.sku">SKU: {{ item.product.sku }}</span>
@@ -183,7 +182,6 @@
                   </td>
                   <td>
                     <div class="color-info">
-
                       <span class="color-name">{{ item.color?.name || '-' }}</span>
                     </div>
                   </td>
@@ -205,6 +203,43 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Pagination -->
+          <div v-if="totalPages > 1" class="pagination-container">
+            <div class="pagination-info">
+              Showing {{ startItem }}-{{ endItem }} of {{ filteredStock.length }} items
+            </div>
+            <div class="pagination-controls">
+              <button 
+                class="pagination-btn" 
+                :disabled="currentPage === 1" 
+                @click="goToPage(currentPage - 1)"
+              >
+                Previous
+              </button>
+
+              <div class="page-numbers">
+                <button 
+                  v-for="page in visiblePages" 
+                  :key="page"
+                  class="page-number"
+                  :class="{ active: page === currentPage }"
+                  @click="goToPage(page)"
+                >
+                  {{ page }}
+                </button>
+                <span v-if="showEllipsis" class="page-ellipsis">...</span>
+              </div>
+
+              <button 
+                class="pagination-btn" 
+                :disabled="currentPage === totalPages" 
+                @click="goToPage(currentPage + 1)"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -231,6 +266,10 @@ const filters = ref({
   supplier: '',
   minQuantity: null
 });
+
+// Pagination
+const currentPage = ref(1);
+const itemsPerPage = 50;
 
 const message = ref('');
 const error = ref('');
@@ -324,6 +363,47 @@ const filteredStock = computed(() => {
   });
 });
 
+// Pagination computed properties
+const totalPages = computed(() => {
+  return Math.ceil(filteredStock.value.length / itemsPerPage);
+});
+
+const paginatedStock = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  return filteredStock.value.slice(start, end);
+});
+
+const startItem = computed(() => {
+  return (currentPage.value - 1) * itemsPerPage + 1;
+});
+
+const endItem = computed(() => {
+  return Math.min(currentPage.value * itemsPerPage, filteredStock.value.length);
+});
+
+const visiblePages = computed(() => {
+  const pages = [];
+  const maxVisiblePages = 5;
+  let startPage = Math.max(1, currentPage.value - Math.floor(maxVisiblePages / 2));
+  let endPage = Math.min(totalPages.value, startPage + maxVisiblePages - 1);
+
+  if (endPage - startPage + 1 < maxVisiblePages) {
+    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  }
+
+  for (let i = startPage; i <= endPage; i++) {
+    pages.push(i);
+  }
+
+  return pages;
+});
+
+const showEllipsis = computed(() => {
+  return totalPages.value > visiblePages.value.length &&
+    visiblePages.value[visiblePages.value.length - 1] < totalPages.value;
+});
+
 const hasActiveFilters = computed(() => {
   return Object.values(filters.value).some(value =>
     value !== '' && value !== null
@@ -332,7 +412,8 @@ const hasActiveFilters = computed(() => {
 
 // Methods
 const applyFilters = () => {
-  // Filters are applied reactively through computed property
+  // Reset to first page when filters change
+  currentPage.value = 1;
 };
 
 const clearFilters = () => {
@@ -344,11 +425,17 @@ const clearFilters = () => {
     supplier: '',
     minQuantity: null
   };
+  currentPage.value = 1;
 };
 
-const exportStock = () => {
-  // Export functionality
-  console.log('Exporting stock data...');
+const goToPage = (page) => {
+  if (page < 1 || page > totalPages.value) return;
+  currentPage.value = page;
+  // Scroll to top of table
+  const tableContainer = document.querySelector('.table-container');
+  if (tableContainer) {
+    tableContainer.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 };
 
 const fetchStock = async () => {
@@ -416,9 +503,7 @@ onMounted(() => {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   width: 100%;
   max-width: 2000px;
-
   margin: 0 auto;
-  /* Center the container */
 }
 
 /* Modern Header */
@@ -527,9 +612,7 @@ onMounted(() => {
 .filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  /* Reduced from 180px */
   gap: 10px;
-  /* Reduced from 12px */
   margin-bottom: 12px;
 }
 
@@ -671,6 +754,7 @@ onMounted(() => {
   color: #64748b;
   margin-bottom: 8px;
   font-weight: 500;
+  padding: 8px 0;
 }
 
 /* Modern Card */
@@ -685,13 +769,13 @@ onMounted(() => {
 .table-container {
   overflow-x: auto;
   max-width: 100%;
+  max-height: 600px;
 }
 
 .modern-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  /* Added for consistent column widths */
 }
 
 .table-header {
@@ -708,7 +792,6 @@ onMounted(() => {
   font-size: 13px;
   text-align: left;
   padding: 12px 10px;
-  /* Reduced padding */
   border-bottom: 1px solid #e2e8f0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -717,7 +800,6 @@ onMounted(() => {
 
 .modern-table td {
   padding: 12px 10px;
-  /* Reduced padding */
   border-bottom: 1px solid #f1f5f9;
   color: #1e293b;
   font-size: 13px;
@@ -730,25 +812,20 @@ onMounted(() => {
   background-color: #f8fafc;
 }
 
-/* Column Width Controls - Reduced by 20% */
+/* Column Width Controls */
 .table-checkbox {
   width: 60px;
-  /* Reduced from 70px */
   min-width: 60px;
 }
 
 .modern-table th:nth-child(2),
-/* Product column */
 .product-cell {
   width: 25%;
-  /* Reduced by 20% */
   min-width: 140px;
-  /* Reduced from 180px */
   max-width: 160px;
 }
 
 .modern-table th:nth-child(3),
-/* Color column */
 .color-cell {
   width: 15%;
   min-width: 100px;
@@ -756,7 +833,6 @@ onMounted(() => {
 }
 
 .modern-table th:nth-child(4),
-/* Size column */
 .size-cell {
   width: 10%;
   min-width: 60px;
@@ -764,21 +840,16 @@ onMounted(() => {
 }
 
 .modern-table th:nth-child(5),
-/* Supplier column */
 .supplier-header,
 .supplier-cell {
   width: 20%;
-  /* Reduced by 20% */
   min-width: 120px;
-  /* Reduced */
   max-width: 140px;
 }
 
 .modern-table th:nth-child(6),
-/* Quantity column */
 .quantity-cell {
   width: 8%;
-  /* Reduced */
   min-width: 60px;
   max-width: 70px;
   text-align: center;
@@ -797,7 +868,6 @@ onMounted(() => {
   background: #f1f5f9;
   color: #64748b;
   padding: 4px 6px;
-  /* Reduced padding */
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
@@ -808,14 +878,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  /* Reduced from 8px */
 }
 
 .profile-icon {
   width: 24px;
-  /* Reduced from 28px */
   height: 24px;
-  /* Reduced from 28px */
   border-radius: 50%;
   background-color: #4a6cf7;
   display: flex;
@@ -841,7 +908,6 @@ onMounted(() => {
 
 .product-sku {
   font-size: 10px;
-  /* Reduced from 11px */
   color: #6b7280;
   font-family: 'Monaco', 'Consolas', monospace;
   overflow: hidden;
@@ -857,9 +923,7 @@ onMounted(() => {
 
 .color-swatch {
   width: 12px;
-  /* Reduced from 14px */
   height: 12px;
-  /* Reduced from 14px */
   border-radius: 50%;
   border: 1px solid #e5e7eb;
   flex-shrink: 0;
@@ -877,10 +941,8 @@ onMounted(() => {
   background: #e0e7ff;
   color: #3730a3;
   padding: 3px 6px;
-  /* Reduced padding */
   border-radius: 4px;
   font-size: 10px;
-  /* Reduced from 11px */
   font-weight: 600;
 }
 
@@ -905,7 +967,6 @@ onMounted(() => {
   text-align: center;
   display: block;
   width: 100%;
-  /* Fixed from 25% */
 }
 
 .quantity-text.low-stock {
@@ -949,6 +1010,86 @@ onMounted(() => {
   text-decoration: underline;
 }
 
+/* Pagination Styles */
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pagination-btn {
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  color: #374151;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.page-number {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  min-width: 40px;
+  color: #374151;
+}
+
+.page-number:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.page-number.active {
+  background: #4a6cf7;
+  color: white;
+  border-color: #4a6cf7;
+}
+
+.page-ellipsis {
+  color: #64748b;
+  padding: 0 4px;
+  font-weight: 500;
+}
+
 /* Responsive Design */
 @media (max-width: 1024px) {
   .main-content {
@@ -966,7 +1107,6 @@ onMounted(() => {
   .modern-table th,
   .modern-table td {
     padding: 10px 8px;
-    /* Further reduced padding */
   }
 
   .filter-grid {
@@ -985,7 +1125,17 @@ onMounted(() => {
     justify-content: flex-end;
   }
 
-  /* Further reduce column widths on mobile */
+  .pagination-container {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .pagination-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
   .table-checkbox {
     width: 50px;
     min-width: 50px;
@@ -1034,6 +1184,21 @@ onMounted(() => {
 
   .product-sku {
     font-size: 9px;
+  }
+
+  .page-numbers {
+    gap: 4px;
+  }
+
+  .page-number {
+    padding: 6px 10px;
+    min-width: 35px;
+    font-size: 12px;
+  }
+
+  .pagination-btn {
+    padding: 6px 12px;
+    font-size: 12px;
   }
 }
 </style>

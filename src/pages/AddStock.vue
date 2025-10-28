@@ -92,11 +92,23 @@
                                     </el-select>
                                 </td>
                                 <td>
-                                    <el-select v-model="item.colorId" @change="onColorChange(idx)" filterable
-                                        placeholder="Select Color" class="w-full" :disabled="loading" clearable>
-                                        <el-option v-for="c in sortedColors" :key="c.id" :label="c.name"
-                                            :value="c.id" />
-                                    </el-select>
+                                   <el-select 
+    v-model="item.colorId"
+    @change="onColorChange(idx)" 
+    filterable
+    placeholder="Select Color"
+    class="w-full"
+    :disabled="loading"
+    clearable
+>
+    <el-option 
+        v-for="c in getAvailableColors(item.productId, item.sizeId)"
+        :key="c.id"
+        :label="c.name"
+        :value="c.id"
+    />
+</el-select>
+
                                 </td>
                                 <td class="quantity-col">
                                     <input type="number" v-model="item.quantity" min="1" class="quantity-input"
@@ -201,6 +213,16 @@ const hasDraft = computed(() => localStorage.getItem(DRAFT_KEY) !== null);
 function createEmptyItem() {
     return { productId: "", sizeId: "", colorId: "", quantity: 0 };
 }
+const getAvailableColors = (productId, sizeId) => {
+    if (!productId || !sizeId) return sortedColors.value;
+
+    const usedColors = stockItems.value
+        .filter(i => i.productId === productId && i.sizeId === sizeId && i.colorId)
+        .map(i => i.colorId);
+
+    return sortedColors.value.filter(c => !usedColors.includes(c.id));
+};
+
 
 // ---- DRAFT ----
 const saveDraft = () => {
