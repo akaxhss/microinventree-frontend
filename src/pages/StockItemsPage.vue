@@ -269,7 +269,7 @@ const filters = ref({
 
 // Pagination
 const currentPage = ref(1);
-const itemsPerPage = 50;
+const itemsPerPage = 20;
 
 const message = ref('');
 const error = ref('');
