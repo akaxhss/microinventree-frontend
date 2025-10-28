@@ -757,25 +757,23 @@ onMounted(() => {
   padding: 8px 0;
 }
 
-/* Modern Card */
 .modern-card {
   background: #ffffff;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
 }
 
 .table-container {
   overflow-x: auto;
+  overflow-y: auto;
   max-width: 100%;
-  max-height: 600px;
-}
-
-.modern-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
+  flex: 1; 
+  position: relative;
 }
 
 .table-header {
@@ -784,6 +782,14 @@ onMounted(() => {
   z-index: 10;
   background-color: #f8fafc;
 }
+
+.modern-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+
 
 .modern-table th {
   background-color: #f8fafc;
