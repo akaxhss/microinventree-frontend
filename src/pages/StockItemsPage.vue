@@ -269,7 +269,7 @@ const filters = ref({
 
 // Pagination
 const currentPage = ref(1);
-const itemsPerPage = 20;
+const itemsPerPage = 30;
 
 const message = ref('');
 const error = ref('');
@@ -757,30 +757,40 @@ onMounted(() => {
   padding: 8px 0;
 }
 
+/* Modern Card */
 .modern-card {
   background: #ffffff;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   max-width: 100%;
-  display: flex;
-  flex-direction: column;
-  max-height: 80vh;
 }
 
 .table-container {
   overflow-x: auto;
   overflow-y: auto;
   max-width: 100%;
-  flex: 1; 
+  flex: 1;
   position: relative;
+  border: 1px solid #e2e8f0;
+  border-radius: 0 0 8px 8px;
 }
 
-.table-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background-color: #f8fafc;
+.table-container::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.05));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.table-container.scrolling::after {
+  opacity: 1;
 }
 
 .modern-table {
@@ -789,7 +799,12 @@ onMounted(() => {
   table-layout: fixed;
 }
 
-
+.table-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #f8fafc;
+}
 
 .modern-table th {
   background-color: #f8fafc;
