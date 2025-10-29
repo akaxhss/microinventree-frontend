@@ -8,7 +8,10 @@
             <ModernHeader />
 
             <div class="form-container">
-                <h2 class="page-title">📦 Edit Packing Slip</h2>
+                <h2 class="page-title">
+                    <Icon name="edit" size="20" class="page-icon" />
+                    Edit Packing Slip
+                </h2>
 
                 <!-- Loading Overlay -->
                 <div v-if="loading" class="loading-overlay">
@@ -118,14 +121,17 @@
                                         <span class="available-qty">{{ item.availableStock }}</span>
                                     </td>
                                     <td class="action-col">
-                                        <button class="btn danger" @click="removeItem(idx)"
-                                            :disabled="loading">❌</button>
+                                        <button class="btn danger" @click="removeItem(idx)" :disabled="loading">
+                                            <Icon name="close" size="16" class="icon-align" />
+                                        </button>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td colspan="7" class="add-row">
-                                        <button class="btn add-row-btn" @click="addNewRow" :disabled="loading">➕ Add New
-                                            Row</button>
+                                        <button class="btn add-row-btn" @click="addNewRow" :disabled="loading">
+                                            <Icon name="plus" size="16" class="btn-icon icon-align" />
+                                            Add New Row
+                                        </button>
                                     </td>
                                 </tr>
                                 <tr class="total-row">
@@ -139,26 +145,53 @@
                     <!-- Action Buttons -->
                     <div class="form-actions">
                         <button class="btn update" @click="updatePackingSlip" :disabled="!canSave || loading">
-                            <span v-if="loading">⏳ Updating...</span>
-                            <span v-else>🔄 Update Packing Slip</span>
+                            <span v-if="loading">
+                                <Icon name="loading" size="16" class="btn-icon icon-align" />
+                                Updating...
+                            </span>
+                            <span v-else>
+                                <Icon name="refresh" size="16" class="btn-icon icon-align" />
+                                Update Packing Slip
+                            </span>
                         </button>
 
                         <button class="btn remove" @click="removePackingSlip" :disabled="loading">
-                            <span v-if="loading">⏳ Removing...</span>
-                            <span v-else>🗑️ Remove Packing Slip</span>
+                            <span v-if="loading">
+                                <Icon name="loading" size="16" class="btn-icon icon-align" />
+                                Removing...
+                            </span>
+                            <span v-else>
+                                <Icon name="trash" size="16" class="btn-icon icon-align" />
+                                Remove Packing Slip
+                            </span>
                         </button>
 
                         <button class="btn excel" @click="updateAndExportExcel" :disabled="!canSave || loading">
-                            <span v-if="loading">⏳ Saving...</span>
-                            <span v-else>📊 Update & Download Excel</span>
+                            <span v-if="loading">
+                                <Icon name="loading" size="16" class="btn-icon icon-align" />
+                                Saving...
+                            </span>
+                            <span v-else>
+                                <Icon name="excel" size="16" class="btn-icon icon-align" />
+                                Update & Download Excel
+                            </span>
                         </button>
 
                         <button class="btn pdf" @click="updateAndExportPDF" :disabled="!canSave || loading">
-                            <span v-if="loading">⏳ Saving...</span>
-                            <span v-else>📄 Update & Download PDF</span>
+                            <span v-if="loading">
+                                <Icon name="loading" size="16" class="btn-icon icon-align" />
+                                Saving...
+                            </span>
+                            <span v-else>
+                                <Icon name="document" size="16" class="btn-icon icon-align" />
+                                Update & Download PDF
+                            </span>
                         </button>
 
-                        <button class="btn cancel" @click="cancelEdit" :disabled="loading">❌ Cancel Edit</button>
+                        <button class="btn cancel" @click="cancelEdit" :disabled="loading">
+                            <Icon name="close" size="16" class="btn-icon icon-align" />
+                            Cancel Edit
+                        </button>
                     </div>
                 </div>
             </div>
@@ -958,6 +991,12 @@ watch(
 </script>
 
 <style scoped>
+
+.icon-align {
+    vertical-align: middle;
+    position: relative;
+    top: -0.5px; 
+}
 .loading-text {
     font-size: 12px;
     color: #666;

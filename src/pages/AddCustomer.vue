@@ -9,9 +9,13 @@
 
       <div class="form-container">
         <div class="page-header">
-          <h2 class="page-title">Add New Customer</h2>
+          <h2 class="page-title">
+            <Icon name="plus" size="20" class="page-icon" />
+            Add New Customer
+          </h2>
           <router-link to="/listviewcustomer" class="btn back-btn">
-            ← Back to Customers List
+            <Icon name="arrowLeft" size="16" class="btn-icon" />
+            Back to Customers List
           </router-link>
         </div>
 
@@ -45,10 +49,12 @@
             </div>
             <div class="form-actions">
               <button class="btn save-btn" @click="saveCustomer" :disabled="!customerForm.name">
-                ➕ Add Customer
+                <Icon name="plus" size="16" class="btn-icon" />
+                Add Customer
               </button>
               <router-link to="/listviewcustomer" class="btn cancel-btn">
-                ❌ Cancel
+                <Icon name="close" size="16" class="btn-icon" />
+                Cancel
               </router-link>
             </div>
           </div>

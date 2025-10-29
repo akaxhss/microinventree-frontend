@@ -9,10 +9,7 @@
       <div class="avatar">{{ userInitials }}</div>
       <span class="username">{{ username }}</span>
       <div class="session-timer" :class="{ 'warning': remainingTime < 300 }">
-        <svg class="timer-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2"/>
-          <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
+        <Icon name="timer" size="16" class="icon-align " />
         {{ formatTime(remainingTime) }}
       </div>
       <span class="arrow">{{ showDropdown ? "▲" : "▼" }}</span>
@@ -21,10 +18,7 @@
         <div class="session-info">
           <div class="session-title">Session Expires In:</div>
           <div class="session-time" :class="{ 'warning': remainingTime < 300 }">
-            <svg class="timer-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2"/>
-              <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
+            <Icon name="timer" size="16" class="timer-icon" />
             {{ formatTime(remainingTime) }}
           </div>
           <div class="session-details">
@@ -32,26 +26,15 @@
           </div>
         </div>
         <button class="dropdown-item" @click="resetSession">
-          <svg class="dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M14 22C14 22 21 18 21 12C21 6 14 2 14 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M14 22C14 22 7 18 7 12C7 6 14 2 14 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
-            <path d="M3 12H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
+          <Icon name="reset" size="16" class="dropdown-icon" />
           Reset Session
         </button>
         <button class="dropdown-item">
-          <svg class="dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12Z" stroke="currentColor" stroke-width="2"/>
-            <path d="M6 20C6 17.7909 7.79086 16 10 16H14C16.2091 16 18 17.7909 18 20V22H6V20Z" stroke="currentColor" stroke-width="2"/>
-          </svg>
+          <Icon name="users" size="16" class="dropdown-icon" />
           Profile
         </button>
         <button class="dropdown-item logout" @click="handleLogout">
-          <svg class="dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M16 17L21 12L16 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
+          <Icon name="logout" size="16" class="dropdown-icon" />
           Logout
         </button>
       </div>
@@ -254,6 +237,11 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.icon-align {
+    vertical-align: middle;
+    position: relative;
+    top: -0.5px; 
+}
 .pro-header {
   background: #fff;
   border-bottom: 1px solid #e5e7eb;

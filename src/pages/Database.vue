@@ -20,7 +20,7 @@
                         <div class="card-header">
                             <div class="card-title">
                                 <div class="icon-wrapper">
-                                    <span class="icon">💾</span>
+                                    <Icon name="database" size="24" class="card-icon" />
                                 </div>
                                 <div>
                                     <h3>Database Backup</h3>
@@ -51,11 +51,11 @@
                             <div class="backup-actions">
                                 <button @click="takeBackup" :disabled="isBackingUp" class="backup-btn primary">
                                     <span v-if="isBackingUp" class="btn-loading">
-                                        <div class="spinner"></div>
+                                        <Icon name="loading" size="16" class="btn-icon" />
                                         Creating Backup...
                                     </span>
                                     <span v-else class="btn-content">
-                                        <span class="btn-icon">📥</span>
+                                        <Icon name="download" size="16" class="btn-icon" />
                                         Take & Download Backup
                                     </span>
                                 </button>

@@ -9,9 +9,13 @@
 
             <div class="form-container">
                 <div class="page-header">
-                    <h2 class="page-title">Add New Supplier</h2>
+                    <h2 class="page-title">
+                        <Icon name="plus" size="20" class="page-icon" />
+                        Add New Supplier
+                    </h2>
                     <router-link to="/listviewsupplier" class="btn back-btn">
-                        ← Back to Suppliers List
+                        <Icon name="arrowLeft" size="16" class="btn-icon" />
+                        Back to Suppliers List
                     </router-link>
                 </div>
 
@@ -39,7 +43,8 @@
                                     @blur="validateEmail" @input="clearEmailError" placeholder="supplier@example.com"
                                     class="form-input" :class="{ 'input-error': emailError }" />
                                 <div v-if="emailError" class="error-message">
-                                    ❌ {{ emailError }}
+                                    <Icon name="close" size="14" />
+                                    {{ emailError }}
                                 </div>
                             </div>
                             <div class="form-group">
@@ -56,7 +61,8 @@
                                     @input="clearWebsiteError" placeholder="https://example.com" class="form-input"
                                     :class="{ 'input-error': websiteError }" />
                                 <div v-if="websiteError" class="error-message">
-                                    ❌ {{ websiteError }}
+                                    <Icon name="close" size="14" />
+                                    {{ websiteError }}
                                 </div>
                             </div>
                             <div class="form-group">
@@ -99,10 +105,12 @@
 
                         <div class="form-actions">
                             <button class="btn save-btn" @click="saveSupplier" :disabled="!canSave">
-                                ➕ Add Supplier
+                                <Icon name="plus" size="16" class="btn-icon" />
+                                Add Supplier
                             </button>
                             <router-link to="/listviewsupplier" class="btn cancel-btn">
-                                ❌ Cancel
+                                <Icon name="close" size="16" class="btn-icon" />
+                                Cancel
                             </router-link>
                         </div>
                     </div>

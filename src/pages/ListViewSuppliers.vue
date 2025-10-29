@@ -32,11 +32,12 @@
                                     @click="clearFilter"
                                     title="Clear filter"
                                 >
-                                    ❌
+                                    <Icon name="close" size="16" />
                                 </button>
                             </div>
                             <router-link to="/add-supplier" class="btn add-new-btn">
-                                ➕ Add New Supplier
+                                <Icon name="plus" size="16" class="btn-icon" />
+                                Add New Supplier
                             </router-link>
                         </div>
                     </div>
@@ -55,7 +56,8 @@
                             Showing {{ filteredSuppliers.length }} of {{ suppliers.length }} suppliers
                             <span v-if="supplierFilter">for "{{ supplierFilter }}"</span>
                             <button class="btn download-all-btn" @click="downloadAllSuppliers" title="Download all suppliers as CSV">
-                                📥 Download All as CSV
+                                <Icon name="download" size="16" class="btn-icon" />
+                                Download All as CSV
                             </button>
                         </div>
                         <table class="data-table">
@@ -76,7 +78,6 @@
                                     :class="{ 'inactive-row': supplier.status === 'inactive' }">
                                     <td class="name-cell">
                                         <strong>{{ supplier.name }}</strong>
-                                       
                                     </td>
                                     <td class="company-cell">
                                         {{ supplier.company_name || '-' }}
@@ -85,7 +86,7 @@
                                         <div class="place-info">
                                             <strong>{{ supplier.place || '-' }}</strong>
                                             <div v-if="supplier.address" class="address-tooltip">
-                                                📍
+                                                <Icon name="location" size="14" />
                                                 <div class="tooltip-text">{{ supplier.address }}</div>
                                             </div>
                                         </div>
@@ -102,29 +103,38 @@
                                     <td class="website-cell">
                                         <a v-if="isValidWebsite(supplier.website)" :href="supplier.website"
                                             target="_blank" class="website-link">
-                                            🌐 Visit
+                                            <Icon name="globe" size="14" />
+                                            Visit
                                         </a>
                                         <span v-else-if="supplier.website" class="invalid-website"
                                             :title="supplier.website">
-                                            ❌ Invalid
+                                            <Icon name="close" size="14" />
+                                            Invalid
                                         </span>
                                         <span v-else>-</span>
                                     </td>
                                     <td class="status-cell">
                                         <span class="status-badge" :class="supplier.status">
-                                            {{ supplier.status === 'active' ? '✅ Active' : '❌ Inactive' }}
+                                            <template v-if="supplier.status === 'active'">
+                                                <Icon name="check" size="14" />
+                                                Active
+                                            </template>
+                                            <template v-else>
+                                                <Icon name="close" size="14" />
+                                                Inactive
+                                            </template>
                                         </span>
                                     </td>
                                     <td class="actions-cell">
                                         <button class="btn edit-btn" @click="openEditPopup(supplier)" title="Edit">
-                                            ✏️
+                                            <Icon name="edit" size="16" />
                                         </button>
                                         <button class="btn download-btn" @click="downloadSupplier(supplier)" title="Download Details">
-                                            📥
+                                            <Icon name="download" size="16" />
                                         </button>
                                         <button class="btn danger-btn" @click="deleteSupplier(supplier.id)"
                                             title="Delete">
-                                            🗑️
+                                            <Icon name="trash" size="16" />
                                         </button>
                                     </td>
                                 </tr>
@@ -139,7 +149,9 @@
                 <div class="popup-content" @click.stop>
                     <div class="popup-header">
                         <h3>Edit Supplier</h3>
-                        <button class="close-btn" @click="closeEditPopup">✕</button>
+                        <button class="close-btn" @click="closeEditPopup">
+                            <Icon name="close" size="16" />
+                        </button>
                     </div>
                     <div class="popup-body">
                         <div class="supplier-form">
@@ -164,7 +176,8 @@
                                         placeholder="supplier@example.com" class="form-input"
                                         :class="{ 'input-error': editEmailError }" />
                                     <div v-if="editEmailError" class="error-message">
-                                        ❌ {{ editEmailError }}
+                                        <Icon name="close" size="14" />
+                                        {{ editEmailError }}
                                     </div>
                                 </div>
                                 <div class="form-group">
@@ -182,7 +195,8 @@
                                         placeholder="https://example.com" class="form-input"
                                         :class="{ 'input-error': editWebsiteError }" />
                                     <div v-if="editWebsiteError" class="error-message">
-                                        ❌ {{ editWebsiteError }}
+                                        <Icon name="close" size="14" />
+                                        {{ editWebsiteError }}
                                     </div>
                                 </div>
                                 <div class="form-group">
@@ -226,10 +240,12 @@
                     </div>
                     <div class="popup-footer">
                         <button class="btn cancel-btn" @click="closeEditPopup">
-                            ❌ Cancel
+                            <Icon name="close" size="16" class="btn-icon" />
+                            Cancel
                         </button>
                         <button class="btn save-btn" @click="updateSupplier" :disabled="!canEditSave">
-                            💾 Update Supplier
+                            <Icon name="save" size="16" class="btn-icon" />
+                            Update Supplier
                         </button>
                     </div>
                 </div>

@@ -6,7 +6,10 @@
       <ModernHeader />
 
       <div class="form-container">
-        <h2 class="page-title">Record Stock Movement</h2>
+        <h2 class="page-title">
+          <Icon name="refresh" size="20" class="page-icon" />
+          Record Stock Movement
+        </h2>
 
         <!-- Stock Movement Form -->
         <div class="movement-form-section">
@@ -79,9 +82,13 @@
 
           <!-- Form Actions -->
           <div class="form-actions">
-            <button class="btn reset-btn" @click="resetForm">🔄 Reset</button>
+            <button class="btn reset-btn" @click="resetForm">
+              <Icon name="refresh" size="16" class="btn-icon" />
+              Reset
+            </button>
             <button class="btn save-btn" @click="recordMovement" :disabled="!canRecordMovement">
-              💾 Record Movement
+              <Icon name="save" size="16" class="btn-icon" />
+              Record Movement
             </button>
           </div>
         </div>

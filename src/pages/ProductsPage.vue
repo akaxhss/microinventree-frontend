@@ -12,7 +12,10 @@
 
         <!-- Add/Edit Product Form -->
         <div class="product-form-section">
-          <h3 class="section-title">{{ isEditing ? 'Edit Product' : 'Add New Product' }}</h3>
+          <h3 class="section-title">
+            <Icon :name="isEditing ? 'edit' : 'plus'" size="20" class="section-icon" />
+            {{ isEditing ? 'Edit Product' : 'Add New Product' }}
+          </h3>
           <div class="product-form">
             <div class="form-row">
               <div class="form-group">
@@ -43,10 +46,12 @@
 
             <div class="form-actions">
               <button class="btn save-btn" @click="saveProduct" :disabled="!canSave">
-                {{ isEditing ? '💾 Update Product' : '➕ Add Product' }}
+                <Icon :name="isEditing ? 'save' : 'plus'" size="16" class="btn-icon" />
+                {{ isEditing ? 'Update Product' : 'Add Product' }}
               </button>
               <button v-if="isEditing" class="btn cancel-btn" @click="cancelEdit">
-                ❌ Cancel
+                <Icon name="close" size="16" class="btn-icon" />
+                Cancel
               </button>
             </div>
           </div>
@@ -88,10 +93,10 @@
                   </td>
                   <td class="actions-cell">
                     <button class="btn edit-btn" @click="editProduct(product)">
-                      ✏️
+                      <Icon name="edit" size="16" />
                     </button>
                     <button class="btn danger-btn" @click="deleteProduct(product.id)">
-                      🗑️
+                      <Icon name="trash" size="16" />
                     </button>
                   </td>
                 </tr>

@@ -8,7 +8,10 @@
             <ModernHeader />
             <div class="supplier-stock-container">
                 <div class="header-section">
-                    <h1 class="page-title">Edit Stock by Invoice</h1>
+                    <h1 class="page-title">
+                        <Icon name="edit" size="24" class="page-icon" />
+                        Edit Stock by Invoice
+                    </h1>
                     <p class="page-subtitle">Edit quantities or delete items from purchase invoices</p>
                 </div>
 
@@ -77,6 +80,7 @@
                                         :disabled="!hasActiveFilters"
                                         class="search-date-btn"
                                     >
+                                        <Icon name="search" size="14" class="btn-icon" />
                                         Search
                                     </el-button>
                                     <el-button 
@@ -84,12 +88,14 @@
                                         :loading="loadingInvoices"
                                         class="recent-btn"
                                     >
+                                        <Icon name="refresh" size="14" class="btn-icon" />
                                         Show Recent
                                     </el-button>
                                     <el-button 
                                         @click="clearFilters" 
                                         class="clear-btn"
                                     >
+                                        <Icon name="close" size="14" class="btn-icon" />
                                         Clear All
                                     </el-button>
                                 </div>
@@ -167,18 +173,20 @@
                             <h3>Edit Invoice Items ({{ invoiceData.items.length }})</h3>
                             <div class="action-buttons">
                                 <el-button type="primary" @click="saveChanges" :loading="saving" :disabled="!hasChanges">
-                                    <i class="el-icon-check"></i>
+                                    <Icon name="save" size="14" class="btn-icon" />
                                     Save Changes
                                 </el-button>
                                 <el-button @click="resetChanges" :disabled="!hasChanges">
-                                    <i class="el-icon-refresh"></i>
+                                    <Icon name="refresh" size="14" class="btn-icon" />
                                     Reset
                                 </el-button>
                             </div>
                         </div>
 
                         <div v-if="invoiceData.items.length === 0" class="empty-state">
-                            <div class="empty-icon">📦</div>
+                            <div class="empty-icon">
+                                <Icon name="inventory" size="32" />
+                            </div>
                             <h3>No Items Found</h3>
                             <p>This invoice doesn't have any items to edit.</p>
                         </div>
@@ -238,7 +246,7 @@
                                                         size="small" 
                                                         @click="markForDelete(item, index)"
                                                         title="Delete this item">
-                                                        <i class="el-icon-delete"></i>
+                                                        <Icon name="trash" size="12" class="btn-icon" />
                                                         Delete
                                                     </el-button>
                                                     <el-button 
@@ -247,7 +255,7 @@
                                                         size="small" 
                                                         @click="unmarkDelete(item, index)"
                                                         title="Restore this item">
-                                                        <i class="el-icon-refresh-left"></i>
+                                                        <Icon name="refresh" size="12" class="btn-icon" />
                                                         Restore
                                                     </el-button>
                                                 </div>
@@ -262,14 +270,18 @@
 
                 <!-- Initial State -->
                 <div v-else-if="!loading && !invoiceData" class="initial-state">
-                    <div class="initial-icon">🔍</div>
+                    <div class="initial-icon">
+                        <Icon name="search" size="32" />
+                    </div>
                     <h3>Select or Type Invoice</h3>
                     <p>Use filters to search invoices by supplier, date, or show recent invoices</p>
                 </div>
 
                 <!-- Error State -->
                 <div v-if="errorMessage" class="error-state">
-                    <div class="error-icon">❌</div>
+                    <div class="error-icon">
+                        <Icon name="close" size="32" />
+                    </div>
                     <h3>Error Loading Invoice</h3>
                     <p>{{ errorMessage }}</p>
                 </div>

@@ -32,11 +32,12 @@
                   @click="clearFilter"
                   title="Clear filter"
                 >
-                  ❌
+                  <Icon name="close" size="16" />
                 </button>
               </div>
               <router-link to="/add-customer" class="btn add-new-btn">
-                ➕ Add New Customer
+                <Icon name="plus" size="16" class="btn-icon" />
+                Add New Customer
               </router-link>
             </div>
           </div>
@@ -55,7 +56,8 @@
               Showing {{ filteredCustomers.length }} of {{ customers.length }} customers
               <span v-if="customerFilter">for "{{ customerFilter }}"</span>
               <button class="btn download-all-btn" @click="downloadAllCustomers" title="Download all customers as CSV">
-                📥 Download All as CSV
+                <Icon name="download" size="16" class="btn-icon" />
+                Download All as CSV
               </button>
             </div>
             <table class="data-table">
@@ -83,20 +85,20 @@
                     <div class="address-info">
                       {{ customer.address || '-' }}
                       <div v-if="customer.address && customer.address.length > 50" class="address-tooltip">
-                        📍
+                        <Icon name="location" size="14" />
                         <div class="tooltip-text">{{ customer.address }}</div>
                       </div>
                     </div>
                   </td>
                   <td class="actions-cell">
                     <button class="btn edit-btn" @click="openEditPopup(customer)" title="Edit">
-                      ✏️
+                      <Icon name="edit" size="16" />
                     </button>
                     <button class="btn download-btn" @click="downloadCustomer(customer)" title="Download Details">
-                      📥
+                      <Icon name="download" size="16" />
                     </button>
                     <button class="btn danger-btn" @click="deleteCustomer(customer.id)" title="Delete">
-                      🗑️
+                      <Icon name="trash" size="16" />
                     </button>
                   </td>
                 </tr>
@@ -111,7 +113,9 @@
         <div class="popup-content" @click.stop>
           <div class="popup-header">
             <h3>Edit Customer</h3>
-            <button class="close-btn" @click="closeEditPopup">✕</button>
+            <button class="close-btn" @click="closeEditPopup">
+              <Icon name="close" size="16" />
+            </button>
           </div>
           <div class="popup-body">
             <div class="customer-form">
@@ -143,10 +147,12 @@
           </div>
           <div class="popup-footer">
             <button class="btn cancel-btn" @click="closeEditPopup">
-              ❌ Cancel
+              <Icon name="close" size="16" class="btn-icon" />
+              Cancel
             </button>
             <button class="btn save-btn" @click="updateCustomer" :disabled="!editForm.name">
-              💾 Update Customer
+              <Icon name="save" size="16" class="btn-icon" />
+              Update Customer
             </button>
           </div>
         </div>
@@ -154,7 +160,6 @@
     </div>
   </div>
 </template>
-
 <script setup>
 import { ref, onMounted, reactive, computed } from "vue";
 import { useRouter } from "vue-router";

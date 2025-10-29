@@ -6,7 +6,10 @@
             <ModernHeader />
 
             <div class="form-container">
-                <h2 class="page-title">➕ Add Stock</h2>
+                <h2 class="page-title">
+                    <Icon name="plus" size="20" class="page-icon" />
+                    Add Stock
+                </h2>
 
                 <!-- Loading Overlay -->
                 <div v-if="loading" class="loading-overlay">
@@ -20,10 +23,19 @@
                 <!-- Draft Banner -->
                 <div class="draft-banner" v-if="hasDraft">
                     <div class="draft-info">
-                        <span>📋 Draft found from {{ formatDate(draftTimestamp) }}</span>
+                        <span>
+                            <Icon name="document" size="16" class="draft-icon" />
+                            Draft found from {{ formatDate(draftTimestamp) }}
+                        </span>
                         <div class="draft-actions">
-                            <button class="btn draft-load" @click="loadDraft" :disabled="loading">🔄 Load Draft</button>
-                            <button class="btn draft-discard" @click="discardDraft" :disabled="loading">🗑️ Discard</button>
+                            <button class="btn draft-load" @click="loadDraft" :disabled="loading">
+                                <Icon name="refresh" size="16" class="btn-icon" />
+                                Load Draft
+                            </button>
+                            <button class="btn draft-discard" @click="discardDraft" :disabled="loading">
+                                <Icon name="trash" size="16" class="btn-icon" />
+                                Discard
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -115,13 +127,17 @@
                                         @input="validateQuantity(idx)" :disabled="loading" />
                                 </td>
                                 <td class="action-col">
-                                    <button class="btn danger" @click="removeItem(idx)" :disabled="loading">❌</button>
+                                    <button class="btn danger" @click="removeItem(idx)" :disabled="loading">
+                                        <Icon name="close" size="16" />
+                                    </button>
                                 </td>
                             </tr>
                             <tr v-if="!isLastRowComplete">
                                 <td colspan="6" class="add-row">
-                                    <button class="btn add-row-btn" @click="addNewRow" :disabled="loading">➕ Add New
-                                        Row</button>
+                                    <button class="btn add-row-btn" @click="addNewRow" :disabled="loading">
+                                        <Icon name="plus" size="16" class="btn-icon" />
+                                        Add New Row
+                                    </button>
                                 </td>
                             </tr>
                             <tr class="total-row">
@@ -134,13 +150,21 @@
 
                 <!-- Buttons -->
                 <div class="form-actions">
-                    <button class="btn draft" @click="manualSaveDraft" :disabled="!hasFormData || loading">💾 Save
-                        Draft</button>
+                    <button class="btn draft" @click="manualSaveDraft" :disabled="!hasFormData || loading">
+                        <Icon name="save" size="16" class="btn-icon" />
+                        Save Draft
+                    </button>
                     <button class="btn save" @click="saveStock" :disabled="!canSave || loading || !invoiceNumber || !invoiceDate">
-                        <span v-if="loading">⏳ Saving...</span>
+                        <span v-if="loading">
+                            <Icon name="loading" size="16" class="btn-icon" />
+                            Saving...
+                        </span>
                         <span v-else>Save to Database</span>
                     </button>
-                    <button class="btn reset" @click="resetForm" :disabled="loading">🔄 Reset</button>
+                    <button class="btn reset" @click="resetForm" :disabled="loading">
+                        <Icon name="refresh" size="16" class="btn-icon" />
+                        Reset
+                    </button>
                 </div>
             </div>
         </div>
@@ -399,6 +423,9 @@ const resetForm = () => {
 </script> 
 
 <style scoped>
+.btn-icon {
+    transform: translateY(2px); 
+}
 .invoice-section {
     display: flex;
     justify-content: flex-start;

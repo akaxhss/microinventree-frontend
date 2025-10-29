@@ -8,11 +8,17 @@
       <ModernHeader />
 
       <div class="form-container">
-        <h2 class="page-title">Manage Sizes</h2>
+        <h2 class="page-title">
+          <Icon name="sizes" size="20" class="page-icon" />
+          Manage Sizes
+        </h2>
 
         <!-- Add/Edit Size Form -->
         <div class="size-form-section">
-          <h3 class="section-title">{{ isEditing ? 'Edit Size' : 'Add New Size' }}</h3>
+          <h3 class="section-title">
+            <Icon :name="isEditing ? 'edit' : 'plus'" size="18" class="section-icon" />
+            {{ isEditing ? 'Edit Size' : 'Add New Size' }}
+          </h3>
           <div class="size-form">
             <div class="form-row">
               <div class="form-group">
@@ -32,10 +38,12 @@
 
             <div class="form-actions">
               <button class="btn save-btn" @click="saveSize" :disabled="!canSave">
-                {{ isEditing ? '💾 Update Size' : '➕ Add Size' }}
+                <Icon :name="isEditing ? 'save' : 'plus'" size="16" class="btn-icon" />
+                {{ isEditing ? 'Update Size' : 'Add Size' }}
               </button>
               <button v-if="isEditing" class="btn cancel-btn" @click="cancelEdit">
-                ❌ Cancel
+                <Icon name="close" size="16" class="btn-icon" />
+                Cancel
               </button>
             </div>
           </div>
@@ -75,10 +83,10 @@
                   </td> -->
                   <td class="actions-cell">
                     <button class="btn edit-btn" @click="editSize(size)">
-                      ✏️
+                      <Icon name="edit" size="16" />
                     </button>
                     <button class="btn danger-btn" @click="deleteSize(size.id)">
-                      🗑️
+                      <Icon name="trash" size="16" />
                     </button>
                   </td>
                 </tr>

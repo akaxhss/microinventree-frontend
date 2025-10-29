@@ -10,7 +10,10 @@
         <!-- Welcome Section -->
         <section class="welcome-section">
           <div class="welcome-content">
-            <h1 class="welcome-title">👋 Welcome back, {{ username }}!</h1>
+            <h1 class="welcome-title">
+              <Icon name="welcome" size="24" class="welcome-icon" />
+              Welcome back, {{ username }}!
+            </h1>
             <p class="welcome-subtitle">Your clothing inventory management dashboard</p>
           </div>
           <div class="date-display">
@@ -22,7 +25,9 @@
         <section class="stats-grid">
           <!-- Last Backup -->
           <div class="stat-card">
-            <div class="stat-icon">💾</div>
+            <div class="stat-icon">
+              <Icon name="database" size="24" />
+            </div>
             <div class="stat-content">
               <h3 class="stat-title">Last Backup</h3>
               <p class="stat-value" v-if="lastBackup.file_name">{{ lastBackup.file_name }}</p>
@@ -36,7 +41,9 @@
 
           <!-- Last Login -->
           <div class="stat-card">
-            <div class="stat-icon">👤</div>
+            <div class="stat-icon">
+              <Icon name="users" size="24" />
+            </div>
             <div class="stat-content">
               <h3 class="stat-title">Last Login</h3>
               <p class="stat-value">{{ lastLogin.username || 'N/A' }}</p>
@@ -51,7 +58,9 @@
 
           <!-- Recent Packing Slip -->
           <div class="stat-card">
-            <div class="stat-icon">🧾</div>
+            <div class="stat-icon">
+              <Icon name="document" size="24" />
+            </div>
             <div class="stat-content">
               <h3 class="stat-title">Recent Packing Slip</h3>
               <p class="stat-value">{{ lastPackingSlip.slip_number || 'No slips' }}</p>
@@ -67,7 +76,9 @@
 
           <!-- Recent Stock Addition -->
           <div class="stat-card">
-            <div class="stat-icon">📦</div>
+            <div class="stat-icon">
+              <Icon name="inventory" size="24" />
+            </div>
             <div class="stat-content">
               <h3 class="stat-title">Recent Stock</h3>
               <p class="stat-value">{{ lastStock.product || 'No stock added' }}</p>
