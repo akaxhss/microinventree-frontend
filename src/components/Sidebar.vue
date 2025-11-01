@@ -6,6 +6,8 @@
                 <img src="../assets/JPINWHITE.png" alt="JPIN Logo" class="logo" />
             </div>
             <h2>Micro<span>InvenTree</span></h2>
+            <!-- Version Number -->
+            <div class="version">Version: v1.0.1</div>
         </div>
 
         <!-- Menu -->
@@ -187,10 +189,21 @@ const handleMenuClick = (path) => {
     font-weight: 700;
     color: #10b981;
     margin: 0;
+    margin-bottom: 5px; /* Add space for version */
 }
 
 .brand span {
     color: #38bdf8;
+}
+
+/* Version Styles */
+.version {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    margin-top: 0;
+    opacity: 0.8;
 }
 
 .menu {

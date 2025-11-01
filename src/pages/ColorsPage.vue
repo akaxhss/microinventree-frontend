@@ -65,6 +65,7 @@ import { ref, onMounted } from "vue";
 import axios from "../plugins/axios.js";
 import Sidebar from "../components/Sidebar.vue";
 import ModernHeader from "../components/header.vue";
+import Swal from "sweetalert2"; 
 
 // Color data
 const colors = ref([]);
@@ -85,14 +86,24 @@ const loadColors = async () => {
     colors.value = res.data;
   } catch (error) {
     console.error("Error loading colors:", error);
-    alert("Error loading colors!");
+    Swal.fire({
+      icon: "error",
+      title: "Error!",
+      text: "Unable to load colors. Please try again.",
+      confirmButtonColor: "#2563eb"
+    });
   }
 };
 
 // Add new color
 const addColor = async () => {
   if (!newColor.value.name.trim()) {
-    alert("Please enter a color name!");
+    Swal.fire({
+      icon: "warning",
+      title: "Missing field",
+      text: "Please enter a color name.",
+      confirmButtonColor: "#2563eb"
+    });
     return;
   }
 
@@ -112,29 +123,61 @@ const addColor = async () => {
     newColor.value = { name: "", hex_code: "" };
     await loadColors();
 
-    alert("Color added successfully!");
+    Swal.fire({
+      icon: "success",
+      title: "Color added successfully!",
+      showConfirmButton: false,
+      timer: 1500
+    });
   } catch (error) {
     console.error("Error adding color:", error);
-    alert("Error adding color!");
+    const backendError = error.response?.data?.name?.[0] || "Something went wrong while adding the color.";
+    Swal.fire({
+      icon: "error",
+      title: "Error adding color!",
+      text: backendError,
+      confirmButtonColor: "#2563eb"
+    });
   }
 };
 
 // Delete color
 const deleteColor = async (colorId) => {
-  if (!confirm("Are you sure you want to delete this color?")) {
-    return;
-  }
+  const confirmDelete = await Swal.fire({
+    title: "Are you sure?",
+    text: "This action cannot be undone!",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#dc2626",
+    cancelButtonColor: "#6b7280",
+    confirmButtonText: "Yes, delete it!"
+  });
+
+  if (!confirmDelete.isConfirmed) return;
 
   try {
     await axios.delete(`/colors/${colorId}/`);
     await loadColors();
-    alert("Color deleted successfully!");
+
+    Swal.fire({
+      icon: "success",
+      title: "Deleted!",
+      text: "Color deleted successfully.",
+      showConfirmButton: false,
+      timer: 1500
+    });
   } catch (error) {
     console.error("Error deleting color:", error);
-    alert("Error deleting color!");
+    Swal.fire({
+      icon: "error",
+      title: "Error deleting color!",
+      text: "Please try again.",
+      confirmButtonColor: "#2563eb"
+    });
   }
 };
 </script>
+
 
 <style scoped>
 .layout {

@@ -991,12 +991,27 @@ const exportPDF = (data) => {
     const doc = new jsPDF();
     const slips = Array.isArray(data) ? data : [data];
 
+    // Define a consistent size order
+    const SIZE_ORDER = [
+        "S", "M", "L", "XL", "XXL", "XXXL",
+        "FREE SIZE", "S/M", "L/XL", "2/3XL"
+    ];
+
     slips.forEach((slip, index) => {
         if (index > 0) doc.addPage();
 
         const customer = customers.value.find(c => c.id == slip.customer);
         const grouped = groupByProduct(slip.lines);
-        const dynamicSizeHeaders = sizeHeaders.value;
+
+        //  Sort dynamic size headers according to SIZE_ORDER
+        const dynamicSizeHeaders = [...sizeHeaders.value].sort((a, b) => {
+            const indexA = SIZE_ORDER.indexOf(a);
+            const indexB = SIZE_ORDER.indexOf(b);
+            if (indexA === -1 && indexB === -1) return a.localeCompare(b);
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
 
         // Title
         doc.setFont("helvetica", "bold");
@@ -1077,7 +1092,7 @@ const exportPDF = (data) => {
         const infoY = slipY + 5;
         doc.text(`Slip #: ${slip.slip_number || "N/A"}`, 20, infoY);
         doc.text(`Date: ${formatDate(slip.date) || "N/A"}`, 90, infoY);
-        doc.text(`No of Cartons: `, 160, infoY);
+        doc.text(`No of Cartons: ${cartons}`, 160, infoY);
         doc.line(15, infoY + 2, 195, infoY + 2);
 
         // Table Section
@@ -1178,7 +1193,7 @@ const exportPDF = (data) => {
             y += 10;
         });
 
-        // Footer Summary (Aligned and Styled)
+        // Footer Summary
         const totalProducts = Object.keys(grouped).length;
         const totalItems = Object.values(grouped).reduce((a, g) => a + g.grandTotal, 0);
 
@@ -1186,7 +1201,7 @@ const exportPDF = (data) => {
         doc.setFontSize(9);
         doc.text(`Total Products: ${totalProducts}`, 20, y);
         doc.setFontSize(10);
-        doc.text(`Total Items: ${totalItems}`, 185, y, { align: "right" }); // right-aligned
+        doc.text(`Total Items: ${totalItems}`, 185, y, { align: "right" });
 
         // Footer Lines
         y += 10;
