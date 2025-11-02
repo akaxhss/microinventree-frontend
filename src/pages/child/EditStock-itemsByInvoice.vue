@@ -239,27 +239,16 @@
                                                 </div>
                                             </td>
                                             <td class="action-col">
-                                                <div class="action-buttons">
-                                                    <el-button 
-                                                        v-if="!item.markedForDelete"
-                                                        type="danger" 
-                                                        size="small" 
-                                                        @click="markForDelete(item, index)"
-                                                        title="Delete this item">
-                                                        <Icon name="trash" size="12" class="btn-icon" />
-                                                        Delete
-                                                    </el-button>
-                                                    <el-button 
-                                                        v-else
-                                                        type="success" 
-                                                        size="small" 
-                                                        @click="unmarkDelete(item, index)"
-                                                        title="Restore this item">
-                                                        <Icon name="refresh" size="12" class="btn-icon" />
-                                                        Restore
-                                                    </el-button>
-                                                </div>
-                                            </td>
+    <div class="action-buttons">
+        <span v-if="item.modified" class="updated-badge">
+            <Icon name="check" size="12" class="badge-icon" />
+            Updated
+        </span>
+        <span v-else class="no-changes">
+            No changes
+        </span>
+    </div>
+</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -667,7 +656,27 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.updated-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background-color: #10b981;
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
 
+.badge-icon {
+    color: white;
+}
+
+.no-changes {
+    color: #6b7280;
+    font-size: 12px;
+    font-style: italic;
+}
 .filter-info {
     font-size: 0.8rem;
     color: #666;

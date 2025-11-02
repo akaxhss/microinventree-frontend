@@ -814,7 +814,7 @@ const exportPDF = (data) => {
         const infoY = slipY + 5;
         doc.text(`Slip #: ${slip.slip_number || "N/A"}`, 20, infoY);
         doc.text(`Date: ${formatDate(slip.date) || "N/A"}`, 90, infoY);
-        doc.text(`No of Cartons: ${cartons}`, 160, infoY);
+        doc.text(`No of Cartons: `, 160, infoY);
         doc.line(15, infoY + 2, 195, infoY + 2);
 
         // Table Section

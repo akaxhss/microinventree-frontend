@@ -46,6 +46,7 @@
 import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import axios from "../plugins/axios.js";
+import Swal from "sweetalert2";
 
 const router = useRouter();
 
@@ -56,7 +57,9 @@ const userInitials = username.split(" ").map(word => word[0]).join("").slice(0, 
 const showDropdown = ref(false);
 const remainingTime = ref(0);
 const tokenExpiry = ref(null);
+const warningShown = ref(false); // Track if warning has been shown
 let timerInterval = null;
+let swalInstance = null; // Reference to the SweetAlert instance
 
 // Decode JWT token to get expiry time
 const decodeJWT = (token) => {
@@ -131,13 +134,85 @@ const sessionDuration = computed(() => {
   return "Unknown";
 });
 
+// Show warning popup when 5 minutes remaining
+const showWarningPopup = () => {
+  if (warningShown.value) return; // Don't show multiple warnings
+  
+  warningShown.value = true;
+  
+  swalInstance = Swal.fire({
+    title: 'Session Expiring Soon!',
+    html: `
+      <div style="text-align: center;">
+        <div style="font-size: 48px; color: #ff6b6b; margin: 20px 0;">⏰</div>
+        <p style="font-size: 16px; margin-bottom: 10px;">Your session will expire in <strong style="color: #ff6b6b;">5 minutes</strong>.</p>
+        <p style="font-size: 14px; color: #666; margin-bottom: 20px;">Hit reset session to save your work</p>
+        <div id="countdown-timer" style="font-size: 24px; font-weight: bold; color: #ff6b6b; margin: 20px 0;">
+          ${formatTime(remainingTime.value)}
+        </div>
+      </div>
+    `,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Reset Session',
+    cancelButtonText: 'Continue Working',
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showCloseButton: false,
+    didOpen: () => {
+      // Update countdown every second
+      const countdownElement = document.getElementById('countdown-timer');
+      if (countdownElement) {
+        const countdownInterval = setInterval(() => {
+          const timeLeft = calculateRemainingTime();
+          countdownElement.textContent = formatTime(timeLeft);
+          
+          // Auto close when session expires
+          if (timeLeft <= 0) {
+            clearInterval(countdownInterval);
+            Swal.close();
+            handleLogout();
+          }
+        }, 1000);
+        
+        // Store interval reference to clear later
+        swalInstance.countdownInterval = countdownInterval;
+      }
+    },
+    willClose: () => {
+      // Clear the countdown interval when popup closes
+      if (swalInstance.countdownInterval) {
+        clearInterval(swalInstance.countdownInterval);
+      }
+    }
+  }).then((result) => {
+    warningShown.value = false; // Reset warning flag
+    
+    if (result.isConfirmed) {
+      // User clicked "Reset Session"
+      resetSession();
+    } else {
+      // User clicked "Continue Working" or closed the dialog
+      // The warning will show again if they come back to 5 minutes
+      warningShown.value = false;
+    }
+  });
+};
+
 // Reset session by refreshing token
 const resetSession = async () => {
   try {
     const refreshToken = localStorage.getItem('refreshToken');
     
     if (!refreshToken) {
-      alert('No refresh token available. Please login again.');
+      Swal.fire({
+        title: 'Session Error',
+        text: 'No refresh token available. Please login again.',
+        icon: 'error',
+        confirmButtonText: 'OK'
+      });
       handleLogout();
       return;
     }
@@ -159,12 +234,25 @@ const resetSession = async () => {
         tokenExpiry.value = decoded.exp;
       }
       
+      warningShown.value = false; // Reset warning flag
       showDropdown.value = false;
-      alert(`Session refreshed successfully! New session duration: ${sessionDuration.value}`);
+      
+      Swal.fire({
+        title: 'Session Refreshed!',
+        text: `New session duration: ${sessionDuration.value}`,
+        icon: 'success',
+        confirmButtonText: 'OK',
+        timer: 3000
+      });
     }
   } catch (error) {
     console.error('Error refreshing token:', error);
-    alert('Failed to refresh session. Please login again.');
+    Swal.fire({
+      title: 'Refresh Failed',
+      text: 'Failed to refresh session. Please login again.',
+      icon: 'error',
+      confirmButtonText: 'OK'
+    });
     handleLogout();
   }
 };
@@ -173,11 +261,24 @@ const resetSession = async () => {
 const checkTokenExpiry = () => {
   remainingTime.value = calculateRemainingTime();
   
+  // Show warning when 5 minutes (300 seconds) remaining and warning not shown yet
+  if (remainingTime.value <= 300 && remainingTime.value > 0 && !warningShown.value) {
+    showWarningPopup();
+  }
+  
   if (remainingTime.value <= 0) {
-    alert('Your session has expired. Please login again.');
-    handleLogout();
-  } else if (remainingTime.value <= 60) {
-    // Warning when less than 1 minute remaining
+    Swal.fire({
+      title: 'Session Expired',
+      text: 'Your session has expired. Please login again.',
+      icon: 'info',
+      confirmButtonText: 'OK',
+      allowOutsideClick: false,
+      allowEscapeKey: false
+    }).then(() => {
+      handleLogout();
+    });
+  } else if (remainingTime.value <= 60 && !warningShown.value) {
+    // Additional warning when less than 1 minute remaining (fallback)
     console.warn('Session expiring in less than 1 minute');
   }
 };
@@ -188,6 +289,11 @@ const toggleDropdown = (event) => {
 };
 
 const handleLogout = () => {
+  // Clear any active SweetAlert instances
+  if (swalInstance) {
+    Swal.close();
+  }
+  
   // Clear all stored data
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
@@ -231,6 +337,9 @@ onUnmounted(() => {
   // Cleanup
   if (timerInterval) {
     clearInterval(timerInterval);
+  }
+  if (swalInstance) {
+    Swal.close();
   }
   document.removeEventListener('click', closeDropdown);
 });
