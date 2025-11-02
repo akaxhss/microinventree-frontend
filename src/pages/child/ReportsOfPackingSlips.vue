@@ -530,7 +530,7 @@ const formatDate = (dateString) => {
 };
 
 const formatDateTime = (dateString) => {
-  return new Date(dateString).toLocaleString();
+  return new Date(dateString).toLocaleString('en-GB');
 };
 
 const groupByProduct = (lines) => {
