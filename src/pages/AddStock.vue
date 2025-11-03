@@ -99,8 +99,8 @@
                                 <td>
                                     <el-select v-model="item.sizeId" filterable placeholder="Select Size" class="w-full"
                                         :disabled="loading" clearable>
-                                        <el-option v-for="s in sortedSizes" :key="s.id" :label="s.display_name"
-                                            :value="s.id" />
+                                       <el-option v-for="s in sortedSizes" :key="s.id" :label="s.code" :value="s.id" />
+
                                     </el-select>
                                 </td>
                                 <td>
@@ -205,28 +205,28 @@ let autoSaveTimeout = null;
 // ---- COMPUTED ----
 const sortedSuppliers = computed(() => [...suppliers.value].sort((a, b) => a.name.localeCompare(b.name)));
 const sortedProducts = computed(() => [...products.value].sort((a, b) => a.name.localeCompare(b.name)));
-const SIZE_ORDER = ["XS",
-  "S", "M", "L", "XL", "XXL", "XXXL",
+const SIZE_ORDER = [
+  "XS", "S", "M", "L", "XL", "XXL", "XXXL",
   "FREE SIZE", "S/M", "L/XL", "2/3XL"
 ];
 
 const sortedSizes = computed(() => {
-  // Sort using SIZE_ORDER priority first, then alphabetically as fallback
   return [...sizes.value].sort((a, b) => {
-    const aIndex = SIZE_ORDER.indexOf(a.display_name?.toUpperCase());
-    const bIndex = SIZE_ORDER.indexOf(b.display_name?.toUpperCase());
+    const aCode = a.code?.toUpperCase();
+    const bCode = b.code?.toUpperCase();
+    const aIndex = SIZE_ORDER.indexOf(aCode);
+    const bIndex = SIZE_ORDER.indexOf(bCode);
 
-    // If both exist in SIZE_ORDER  sort by index
+    // Prioritize defined order
     if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-
-    // If only one exists  prioritize the one that exists
     if (aIndex !== -1) return -1;
     if (bIndex !== -1) return 1;
 
-    // Otherwise, alphabetical fallback
-    return a.display_name.localeCompare(b.display_name);
+    // Fallback alphabetical
+    return aCode.localeCompare(bCode);
   });
 });
+
 const sortedColors = computed(() => [...colors.value].sort((a, b) => a.name.localeCompare(b.name)));
 const totalQuantity = computed(() => stockItems.value.reduce((sum, i) => sum + (parseInt(i.quantity) || 0), 0));
 

@@ -924,55 +924,230 @@ const exportExcel = (slipData) => {
     XLSX.writeFile(wb, `PackingSlip_${slipData.slip_number}.xlsx`);
 };
 
-const exportPDF = (slipData) => {
+const exportPDF = (data) => {
     const doc = new jsPDF();
-    const grouped = groupByProduct(slipData.lines);
-    const sizeHeaders = ["S", "M", "L", "XL", "XXL", "XXXL"];
+    const slips = Array.isArray(data) ? data : [data];
 
-    // Header
-    doc.setFontSize(16);
-    doc.text("Packing Slip Report", 105, 20, { align: "center" });
-    doc.setFontSize(10);
-    doc.text(`Slip #: ${slipData.slip_number}`, 14, 35);
-    doc.text(`Date: ${formatDate(slipData.date)}`, 14, 42);
-    doc.text(`Customer: ${getCustomerNameById(slipData.customer)}`, 14, 49);
+    // Define a consistent size order
+    const SIZE_ORDER = [
+        "S", "M", "L", "XL", "XXL", "XXXL",
+        "FREE SIZE", "S/M", "L/XL", "2/3XL"
+    ];
 
-    let y = 60;
+    slips.forEach((slip, index) => {
+        if (index > 0) doc.addPage();
 
-    Object.keys(grouped).forEach((product) => {
-        const group = grouped[product];
+        const customer = customers.value.find(c => c.id == slip.customer);
+        const grouped = groupByProduct(slip.lines);
 
-        // Product title
-        doc.setFontSize(12);
-        doc.text(product, 14, y);
-        y += 8;
-
-        // Table data
-        const tableData = group.rows.map(row => [
-            row.color,
-            ...sizeHeaders.map(size => row.sizes[size] || 0),
-            row.total.toString()
-        ]);
-
-        // Add grand total row
-        tableData.push([
-            "Grand Total",
-            ...sizeHeaders.map(size => group.totals[size].toString()),
-            group.grandTotal.toString()
-        ]);
-
-        autoTable(doc, {
-            head: [["Color", ...sizeHeaders, "Total"]],
-            body: tableData,
-            startY: y,
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [59, 130, 246] }
+        //  Sort dynamic size headers according to SIZE_ORDER
+        const dynamicSizeHeaders = [...sizeHeaders.value].sort((a, b) => {
+            const indexA = SIZE_ORDER.indexOf(a);
+            const indexB = SIZE_ORDER.indexOf(b);
+            if (indexA === -1 && indexB === -1) return a.localeCompare(b);
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
         });
 
-        y = doc.lastAutoTable.finalY + 15;
+        // Title
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.text("PACKING SLIP", 105, 15, { align: "center" });
+        doc.setDrawColor(150);
+        doc.setLineWidth(0.4);
+        doc.line(20, 18, 190, 18);
+
+        // Distributor Details
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text("A.S.DISTRIBUTORS", 20, 25);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+
+        const addressLines = [
+            "1st FLOOR. GOLDEN TOWER",
+            "VEZHEKKATTUCHIRA, CHANGANACHERRY",
+            "Kerala, PIN: 686101",
+            "Ph: 04812955578  Email: asdistributors2008@yahoo.com",
+            "GSTIN: 32AAPFA6202P2B"
+        ];
+        addressLines.forEach((line, i) => {
+            doc.text(line, 20, 30 + (i * 3.5));
+        });
+
+        // Customer Details (Smart wrapping)
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text("CUSTOMER DETAILS", 130, 25);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+
+        let customerY = 30;
+        if (customer) {
+            doc.text(`Name: ${customer.name || "N/A"}`, 130, customerY);
+            customerY += 4;
+
+            let addressText = `Address: ${customer.address || "N/A"}`;
+            let commaCount = 0;
+            addressText = addressText.replace(/,/g, (match) => {
+                commaCount++;
+                return commaCount % 3 === 0 ? ",\n" : ",";
+            });
+
+            const addressLines = doc.splitTextToSize(addressText, 65);
+            addressLines.forEach((line, i) => {
+                doc.text(line.trim(), 130, customerY + (i * 3.5));
+            });
+
+            customerY += (addressLines.length * 3.5) + 2;
+
+            const locationText = `Place: ${customer.place || "N/A"}`;
+            const locationLines = doc.splitTextToSize(locationText, 65);
+            locationLines.forEach((line, i) => {
+                doc.text(line.trim(), 130, customerY + (i * 3.5));
+            });
+        } else {
+            const fallback = [
+                "Name: Unknown",
+                "Address: N/A",
+                "Location: N/A"
+            ];
+            fallback.forEach((line, i) => doc.text(line, 130, customerY + (i * 3.5)));
+        }
+
+        // Separator
+        const slipY = 53;
+        doc.setDrawColor(180);
+        doc.line(15, slipY, 195, slipY);
+
+        // Slip Info
+        const cartons = Object.keys(grouped).length;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        const infoY = slipY + 5;
+        doc.text(`Slip #: ${slip.slip_number || "N/A"}`, 20, infoY);
+        doc.text(`Date: ${formatDate(slip.date) || "N/A"}`, 90, infoY);
+        doc.text(`No of Cartons: `, 160, infoY);
+        doc.line(15, infoY + 2, 195, infoY + 2);
+
+        // Table Section
+        let y = infoY + 10;
+        Object.keys(grouped).forEach((product, idx) => {
+            const group = grouped[product];
+
+            if (y > 250) {
+                doc.addPage();
+                y = 20;
+            }
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8);
+            doc.text(product, 20, y);
+            y += 3;
+
+            // Header
+            const headers = ["SN", "Color", ...dynamicSizeHeaders, "Total"];
+            const baseWidths = { SN: 8, Color: 25, Total: 12 };
+            const maxWidth = 190 - (baseWidths.SN + baseWidths.Color + baseWidths.Total + 10);
+            const dynamicWidth = Math.max(7, Math.min(15, maxWidth / dynamicSizeHeaders.length));
+            const columnWidths = [
+                baseWidths.SN,
+                baseWidths.Color,
+                ...dynamicSizeHeaders.map(() => dynamicWidth),
+                baseWidths.Total
+            ];
+            const totalWidth = columnWidths.reduce((a, b) => a + b, 0);
+
+            // Header Bar
+            doc.setFillColor(59, 130, 246);
+            doc.rect(20, y, totalWidth, 6, "F");
+            doc.setTextColor(255);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(6.5);
+
+            let x = 20;
+            headers.forEach((h, i) => {
+                const colWidth = columnWidths[i];
+                const txtWidth = doc.getTextWidth(h);
+                const xOffset = (colWidth - txtWidth) / 2;
+                doc.text(h, x + xOffset, y + 4);
+                x += colWidth;
+            });
+
+            y += 6;
+            doc.setTextColor(0);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7.5);
+
+            // Table Rows
+            group.rows.forEach((row, rowIndex) => {
+                if (rowIndex % 2 === 0) {
+                    doc.setFillColor(245);
+                    doc.rect(20, y, totalWidth, 6, "F");
+                }
+
+                x = 20;
+                const rowData = [
+                    (rowIndex + 1).toString(),
+                    row.color,
+                    ...dynamicSizeHeaders.map(size => row.sizes[size] || 0),
+                    row.total.toString()
+                ];
+
+                rowData.forEach((cell, i) => {
+                    const colWidth = columnWidths[i];
+                    const txtWidth = doc.getTextWidth(String(cell));
+                    const xOffset = Math.max(1, (colWidth - txtWidth) / 2);
+                    doc.text(String(cell), x + xOffset, y + 4);
+                    x += colWidth;
+                });
+                y += 6;
+            });
+
+            // Grand Total
+            y += 2;
+            doc.setFillColor(230, 230, 230);
+            doc.rect(20, y, totalWidth, 7, "F");
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8);
+            x = 20;
+            const totalData = [
+                "",
+                "Grand Total",
+                ...dynamicSizeHeaders.map(size => group.totals[size] || 0),
+                group.grandTotal.toString()
+            ];
+            totalData.forEach((cell, i) => {
+                const colWidth = columnWidths[i];
+                const txtWidth = doc.getTextWidth(String(cell));
+                const xOffset = (colWidth - txtWidth) / 2;
+                doc.text(String(cell), x + xOffset, y + 5);
+                x += colWidth;
+            });
+
+            y += 10;
+        });
+
+        // Footer Summary
+        const totalProducts = Object.keys(grouped).length;
+        const totalItems = Object.values(grouped).reduce((a, g) => a + g.grandTotal, 0);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text(`Total Products: ${totalProducts}`, 20, y);
+        doc.setFontSize(10);
+        doc.text(`Total Items: ${totalItems}`, 185, y, { align: "right" });
+
+        // Footer Lines
+        y += 10;
+        doc.setFontSize(7);
+        doc.text("Packed By: ___________________", 20, y);
+        doc.text("Checked By: ___________________", 120, y);
     });
 
-    doc.save(`PackingSlip_${slipData.slip_number}.pdf`);
+    doc.save("Packing_Slip.pdf");
 };
 
 // Remove packing slip
