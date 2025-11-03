@@ -126,57 +126,57 @@
           </div>
 
           <!-- Details -->
-          <div v-if="expandedSlip === slip.id" class="slip-details">
-            <div v-if="slip.lines.length === 0" class="empty-lines">
-              No items in this packing slip
-            </div>
+         <!-- Details -->
+<div v-if="expandedSlip === slip.id" class="slip-details">
+    <div v-if="slip.lines.length === 0" class="empty-lines">
+        No items in this packing slip
+    </div>
 
-            <div v-else class="lines-container">
-              <div class="lines-header">
-                <h4>Items Details</h4>
-              </div>
+    <div v-else class="lines-container">
+        <div class="lines-header">
+            <h4>Items Details</h4>
+        </div>
 
-              <div class="product-groups">
-                <div v-for="(group, productName) in groupByProduct(slip.lines)" :key="productName"
-                  class="product-block">
-                  <h5 class="product-title">{{ productName }}</h5>
-                  <div class="table-container">
+        <div class="product-groups">
+            <div v-for="(group, productName) in groupByProduct(slip.lines)" :key="productName"
+                class="product-block">
+                <h5 class="product-title">{{ productName }}</h5>
+                <div class="table-container">
                     <table class="items-table">
-                     <thead>
-    <tr>
-      <th>Color</th>
-      <th v-for="size in sizeHeaders" :key="size">{{ size }}</th>
-      <th>Total Qty</th>
-    </tr>
-  </thead>
-  
-  <!-- In the table body -->
-  <tbody>
-    <tr v-for="variant in group.rows" :key="variant.color">
-      <td class="color-cell">
-        {{ variant.color }}
-      </td>
-      <td v-for="size in sizeHeaders" :key="size" class="quantity-cell">
-        {{ variant.sizes[size] ?? 0 }}
-      </td>
-      <td class="total-qty">
-        <strong>{{ variant.total }}</strong>
-      </td>
-    </tr>
-    <tr class="grand-total">
-      <td><strong>Grand Total</strong></td>
-      <td v-for="size in sizeHeaders" :key="size">
-        <strong>{{ group.totals[size] || 0 }}</strong>
-      </td>
-      <td><strong>{{ group.grandTotal }}</strong></td>
-    </tr>
-  </tbody>
+                        <thead>
+                            <tr>
+                                <th>Color</th>
+                                <th v-for="size in getSortedSizeHeaders(group)" :key="size">{{ size }}</th>
+                                <th>Total Qty</th>
+                            </tr>
+                        </thead>
+                        
+                        <tbody>
+                            <tr v-for="variant in group.rows" :key="variant.color">
+                                <td class="color-cell">
+                                    {{ variant.color }}
+                                </td>
+                                <td v-for="size in getSortedSizeHeaders(group)" :key="size" class="quantity-cell">
+                                    {{ variant.sizes[size] ?? 0 }}
+                                </td>
+                                <td class="total-qty">
+                                    <strong>{{ variant.total }}</strong>
+                                </td>
+                            </tr>
+                            <tr class="grand-total">
+                                <td><strong>Grand Total</strong></td>
+                                <td v-for="size in getSortedSizeHeaders(group)" :key="size">
+                                    <strong>{{ group.totals[size] || 0 }}</strong>
+                                </td>
+                                <td><strong>{{ group.grandTotal }}</strong></td>
+                            </tr>
+                        </tbody>
                     </table>
-                  </div>
                 </div>
-              </div>
             </div>
-          </div>
+        </div>
+    </div>
+</div>
         </div>
       </div>
 
@@ -251,6 +251,33 @@ const props = defineProps({
 // Router
 const router = useRouter();
 
+const getSortedSizeHeaders = (group) => {
+    const SIZE_ORDER = [
+        "S", "M", "L", "XL", "XXL", "XXXL",
+        "FREE SIZE", "S/M", "L/XL", "2/3XL"
+    ];
+    
+    // Get all available sizes from the group
+    const availableSizes = Object.keys(group.totals || {});
+    
+    // Sort according to SIZE_ORDER
+    return [...availableSizes].sort((a, b) => {
+        const indexA = SIZE_ORDER.indexOf(a);
+        const indexB = SIZE_ORDER.indexOf(b);
+        
+        // If both sizes are in the order, sort by the order
+        if (indexA !== -1 && indexB !== -1) {
+            return indexA - indexB;
+        }
+        
+        // If only one size is in the order, put it first
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        
+        // If neither size is in the order, sort alphabetically
+        return a.localeCompare(b);
+    });
+};
 // Data
 const customers = ref([]);
 const sizes = ref([]); // Add sizes array

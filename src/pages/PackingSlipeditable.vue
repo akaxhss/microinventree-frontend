@@ -144,55 +144,55 @@
 
                     <!-- Action Buttons -->
                     <div class="form-actions">
-                        <button class="btn update" @click="updatePackingSlip" :disabled="!canSave || loading">
-                            <span v-if="loading">
-                                <Icon name="loading" size="16" class="btn-icon icon-align" />
-                                Updating...
-                            </span>
-                            <span v-else>
-                                <Icon name="refresh" size="16" class="btn-icon icon-align" />
-                                Update Packing Slip
-                            </span>
-                        </button>
+        <button class="btn update" @click="updatePackingSlip" :disabled="!canSave || loading">
+            <span v-if="loading">
+                <Icon name="loading" size="16" class="btn-icon icon-align" />
+                Updating...
+            </span>
+            <span v-else>
+                <Icon name="refresh" size="16" class="btn-icon icon-align" />
+                Update Packing Slip
+            </span>
+        </button>
 
-                        <button class="btn remove" @click="removePackingSlip" :disabled="loading">
-                            <span v-if="loading">
-                                <Icon name="loading" size="16" class="btn-icon icon-align" />
-                                Removing...
-                            </span>
-                            <span v-else>
-                                <Icon name="trash" size="16" class="btn-icon icon-align" />
-                                Remove Packing Slip
-                            </span>
-                        </button>
+        <button class="btn remove" @click="removePackingSlip" :disabled="loading">
+            <span v-if="loading">
+                <Icon name="loading" size="16" class="btn-icon icon-align" />
+                Removing...
+            </span>
+            <span v-else>
+                <Icon name="trash" size="16" class="btn-icon icon-align" />
+                Remove Packing Slip
+            </span>
+        </button>
 
-                        <button class="btn excel" @click="updateAndExportExcel" :disabled="!canSave || loading">
-                            <span v-if="loading">
-                                <Icon name="loading" size="16" class="btn-icon icon-align" />
-                                Saving...
-                            </span>
-                            <span v-else>
-                                <Icon name="excel" size="16" class="btn-icon icon-align" />
-                                Update & Download Excel
-                            </span>
-                        </button>
+        <button class="btn excel" @click="updateAndExportExcel" :disabled="!canSave || loading">
+            <span v-if="loading">
+                <Icon name="loading" size="16" class="btn-icon icon-align" />
+                Saving...
+            </span>
+            <span v-else>
+                <Icon name="excel" size="16" class="btn-icon icon-align" />
+                Update & Download Excel
+            </span>
+        </button>
 
-                        <button class="btn pdf" @click="updateAndExportPDF" :disabled="!canSave || loading">
-                            <span v-if="loading">
-                                <Icon name="loading" size="16" class="btn-icon icon-align" />
-                                Saving...
-                            </span>
-                            <span v-else>
-                                <Icon name="document" size="16" class="btn-icon icon-align" />
-                                Update & Download PDF
-                            </span>
-                        </button>
+        <button class="btn pdf" @click="updateAndExportPDF" :disabled="!canSave || loading">
+            <span v-if="loading">
+                <Icon name="loading" size="16" class="btn-icon icon-align" />
+                Saving...
+            </span>
+            <span v-else>
+                <Icon name="document" size="16" class="btn-icon icon-align" />
+                Update & Download PDF
+            </span>
+        </button>
 
-                        <button class="btn cancel" @click="cancelEdit" :disabled="loading">
-                            <Icon name="close" size="16" class="btn-icon icon-align" />
-                            Cancel Edit
-                        </button>
-                    </div>
+        <button class="btn cancel" @click="cancelEdit" :disabled="loading">
+            <Icon name="close" size="16" class="btn-icon icon-align" />
+            Cancel Edit
+        </button>
+    </div>
                 </div>
             </div>
         </div>
@@ -207,10 +207,10 @@ import autoTable from "jspdf-autotable";
 import axios from "../plugins/axios.js";
 import Sidebar from "../components/Sidebar.vue";
 import ModernHeader from "../components/header.vue";
-
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();
+const router = useRouter();
 
 // Element Plus components
 import { ElSelect, ElOption } from 'element-plus';
@@ -221,16 +221,16 @@ const selectedCustomer = ref("");
 const selectedSlipNumber = ref("");
 const isEditing = ref(false);
 const currentSlipId = ref(null);
+const originalPackingItems = ref([]); // Store original items for cancel
 
 // Data
 const customers = ref([]);
 const products = ref([]);
 const packingItems = ref([]);
-const packingSlips = ref([]); // All packing slips from API
+const packingSlips = ref([]);
 
 // Loading state
 const loading = ref(false);
-const searchLoading = ref(false);
 const loadingSlips = ref(false);
 
 // Computed properties
@@ -238,7 +238,6 @@ const sortedProducts = computed(() => {
     return [...products.value].sort((a, b) => a.name.localeCompare(b.name));
 });
 
-// Sort packing slips by date in descending order (newest first)
 const sortedPackingSlips = computed(() => {
     return [...packingSlips.value].sort((a, b) => {
         return new Date(b.date) - new Date(a.date);
@@ -252,7 +251,10 @@ const sortedAvailableColors = (colors) => {
 
 const sortedAvailableSizes = (sizes) => {
     if (!sizes) return [];
-    const sizeOrder = { 'S': 1, 'M': 2, 'L': 3, 'XL': 4, 'XXL': 5, 'XXXL': 6 };
+    const sizeOrder = { 
+        'XS': 1, 'S': 2, 'M': 3, 'L': 4, 'XL': 5, 'XXL': 6, 'XXXL': 7,
+        'FREE SIZE': 8, 'S/M': 9, 'L/XL': 10, '2/3XL': 11
+    };
     return [...sizes].sort((a, b) => {
         const orderA = sizeOrder[a.size_code] || 999;
         const orderB = sizeOrder[b.size_code] || 999;
@@ -260,17 +262,16 @@ const sortedAvailableSizes = (sizes) => {
     });
 };
 
-// Get available colors for a specific row (allow multiple same colors but filter based on product)
+// FIXED: Get available colors - allow same color for different sizes
 const getAvailableColors = (currentIndex) => {
     const currentItem = packingItems.value[currentIndex];
     if (!currentItem.productId || !currentItem.availableColors) {
         return sortedAvailableColors(currentItem.availableColors || []);
     }
-
     return sortedAvailableColors(currentItem.availableColors || []);
 };
 
-// Get available sizes for a specific row (prevent duplicate sizes for same product-color combo)
+// FIXED: Get available sizes - allow editing even when stock is 0
 const getAvailableSizes = (currentIndex) => {
     const currentItem = packingItems.value[currentIndex];
     if (!currentItem.productId || !currentItem.colorId || !currentItem.availableSizes) {
@@ -297,21 +298,42 @@ const totalQuantity = computed(() =>
     packingItems.value.reduce((sum, i) => sum + (parseInt(i.quantity) || 0), 0)
 );
 
+// FIXED: Can save logic - prevent saving if would cause negative stock
 const canSave = computed(() => {
     if (!selectedCustomer.value) return false;
 
     const validRows = packingItems.value.filter(item =>
-        item.productId && item.colorId && item.sizeId && item.quantity > 0 && item.quantity <= item.maxQuantity
+        item.productId && item.colorId && item.sizeId && item.quantity > 0
     );
 
     if (validRows.length === 0) return false;
 
     const hasIncompleteRows = packingItems.value.some(item =>
-        (item.productId || item.colorId || item.sizeId || item.quantity > 1) &&
+        (item.productId || item.colorId || item.sizeId || item.quantity > 0) &&
         (!item.productId || !item.colorId || !item.sizeId || item.quantity === 0)
     );
 
     if (hasIncompleteRows) return false;
+
+    // NEW: Check if any item would cause negative stock
+    const hasNegativeStock = packingItems.value.some(item => {
+        if (!item.sizeId || !item.colorStockData) return false;
+        
+        const matchingStock = item.colorStockData.find(stock =>
+            parseInt(stock.size_id) === parseInt(item.sizeId)
+        );
+        
+        if (matchingStock) {
+            const finalStock = matchingStock.available_quantity + (item.originalQuantity - item.quantity);
+            return finalStock < 0;
+        }
+        
+        return false;
+    });
+
+    if (hasNegativeStock) {
+        return false;
+    }
 
     return true;
 });
@@ -330,17 +352,18 @@ const getProductName = (productId) => {
 // Create empty item
 function createEmptyItem() {
     return {
-        lineId: null, // null for new rows
+        lineId: null,
         productId: "",
         colorId: "",
         sizeId: "",
         quantity: 1,
-        maxQuantity: 0,
+        maxQuantity: 9999,
         availableColors: [],
         availableSizes: [],
         stockData: [],
         colorStockData: [],
         availableStock: 0,
+        originalQuantity: 0
     };
 }
 
@@ -349,14 +372,12 @@ const loadAllPackingSlips = async () => {
     loadingSlips.value = true;
     try {
         const response = await axios.get('/packingslips/recent/');
-
         if (response.data && response.data.results) {
             packingSlips.value = response.data.results;
         } else if (Array.isArray(response.data)) {
             packingSlips.value = response.data;
         } else {
             packingSlips.value = [];
-            console.error('Unexpected API response format:', response.data);
         }
     } catch (error) {
         console.error("Error loading packing slips:", error);
@@ -366,21 +387,17 @@ const loadAllPackingSlips = async () => {
     }
 };
 
-
 const checkUrlForSlipNumber = () => {
     const slipNumberFromUrl = route.query.slip_number;
     if (slipNumberFromUrl) {
         selectedSlipNumber.value = slipNumberFromUrl;
-        console.log('Auto-loading packing slip from URL:', slipNumberFromUrl);
-
-
         setTimeout(() => {
             loadPackingSlipForEdit();
         }, 500);
     }
 };
 
-// Load packing slip for editing
+// FIXED: Load packing slip for editing with proper stock calculation
 const loadPackingSlipForEdit = async () => {
     if (!selectedSlipNumber.value) return;
 
@@ -405,6 +422,7 @@ const loadPackingSlipForEdit = async () => {
             isEditing.value = true;
 
             packingItems.value = [];
+            originalPackingItems.value = [];
 
             for (const line of slipData.lines) {
                 const newItem = {
@@ -413,17 +431,19 @@ const loadPackingSlipForEdit = async () => {
                     colorId: line.color,
                     sizeId: line.size,
                     quantity: line.quantity,
+                    originalQuantity: line.quantity,
                     maxQuantity: 9999,
                     availableColors: [],
                     availableSizes: [],
                     stockData: [],
-                    colorStockData: []
+                    colorStockData: [],
+                    availableStock: 0
                 };
 
                 packingItems.value.push(newItem);
+                originalPackingItems.value.push({...newItem});
                 await loadProductDataForEdit(packingItems.value.length - 1);
             }
-
 
             if (!route.query.slip_number) {
                 alert(`Packing slip "${slipData.slip_number}" loaded for editing!`);
@@ -439,19 +459,7 @@ const loadPackingSlipForEdit = async () => {
     }
 };
 
-// Format date for display
-const formatDate = (dateString) => {
-    if (!dateString) return 'No date';
-    try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString();
-    } catch (error) {
-        console.error('Error formatting date:', error);
-        return 'Invalid date';
-    }
-};
-
-// Load product data for editing
+// FIXED: Load product data with proper stock calculation for editing
 const loadProductDataForEdit = async (idx) => {
     const item = packingItems.value[idx];
     if (!item.productId) return;
@@ -479,16 +487,14 @@ const loadProductDataForEdit = async (idx) => {
             await loadSizesForColor(idx);
         }
 
-        if (item.sizeId) {
-            updateAvailableQuantity(idx);
-        }
+        updateAvailableQuantityForEdit(idx);
 
     } catch (error) {
         console.error('Error loading product data for edit:', error);
     }
 };
 
-// Load sizes for selected color
+// FIXED: Load sizes for color
 const loadSizesForColor = async (idx) => {
     const item = packingItems.value[idx];
     if (!item.productId || !item.colorId) return;
@@ -527,14 +533,45 @@ const loadSizesForColor = async (idx) => {
     }
 };
 
-// Product change handler for new rows
+// FIXED: Update available quantity for editing - prevent negative stock
+const updateAvailableQuantityForEdit = (idx) => {
+    const item = packingItems.value[idx];
+    if (item.sizeId && item.colorStockData && item.colorStockData.length > 0) {
+        const matchingStock = item.colorStockData.find(stock =>
+            parseInt(stock.size_id) === parseInt(item.sizeId)
+        );
+
+        if (matchingStock) {
+            // Calculate available stock after this change
+            const stockAdjustment = item.originalQuantity - item.quantity;
+            item.availableStock = matchingStock.available_quantity + stockAdjustment;
+            
+            // PREVENT NEGATIVE STOCK: Set max quantity based on available stock
+            item.maxQuantity = item.originalQuantity + matchingStock.available_quantity;
+            
+            // If current quantity would cause negative stock, adjust it
+            if (item.availableStock < 0) {
+                item.quantity = item.maxQuantity;
+                item.availableStock = 0;
+            }
+        } else {
+            item.availableStock = 0;
+            item.maxQuantity = item.originalQuantity;
+        }
+    } else {
+        item.availableStock = 0;
+        item.maxQuantity = item.originalQuantity;
+    }
+};
+
+// FIXED: Product change handler
 const onProductChange = async (idx) => {
     const item = packingItems.value[idx];
     if (!item.productId) {
         item.availableColors = [];
         item.availableSizes = [];
         item.stockData = [];
-        item.maxQuantity = 0;
+        item.maxQuantity = 9999;
         item.colorId = "";
         item.sizeId = "";
         return;
@@ -561,7 +598,7 @@ const onProductChange = async (idx) => {
         item.colorId = "";
         item.sizeId = "";
         item.availableSizes = [];
-        item.maxQuantity = 0;
+        item.maxQuantity = 9999;
 
     } catch (error) {
         console.error("Error loading available stock:", error);
@@ -571,20 +608,20 @@ const onProductChange = async (idx) => {
     }
 };
 
-// Color change handler
+// FIXED: Color change handler
 const onColorChange = async (idx) => {
     const item = packingItems.value[idx];
     if (!item.productId || !item.colorId) {
         item.availableSizes = [];
         item.sizeId = "";
-        item.maxQuantity = 0;
+        item.maxQuantity = 9999;
         return;
     }
 
     try {
         await loadSizesForColor(idx);
         item.sizeId = "";
-        item.maxQuantity = 0;
+        item.maxQuantity = 9999;
 
     } catch (error) {
         console.error("Error loading available sizes:", error);
@@ -592,54 +629,46 @@ const onColorChange = async (idx) => {
     }
 };
 
-// Size change handler
+// FIXED: Size change handler
 const onSizeChange = (idx) => {
-    updateAvailableQuantity(idx);
+    updateAvailableQuantityForEdit(idx);
 };
 
-const updateAvailableQuantity = (idx) => {
-    const item = packingItems.value[idx];
-    if (item.sizeId && item.colorStockData && item.colorStockData.length > 0) {
-        const matchingStock = item.colorStockData.find(stock =>
-            parseInt(stock.size_id) === parseInt(item.sizeId)
-        );
-
-        if (matchingStock) {
-            // Show actual available stock in the Available column (5)
-            item.availableStock = matchingStock.available_quantity;
-
-
-            // So max allowed = current quantity + available stock - 1
-            const currentQuantityInThisRow = item.quantity || 0;
-            item.maxQuantity = currentQuantityInThisRow + matchingStock.available_quantity - 1;
-
-            // Ensure quantity doesn't exceed the new max
-            if (item.quantity > item.maxQuantity) {
-                item.quantity = item.maxQuantity;
-            }
-        } else {
-            item.availableStock = 0;
-            item.maxQuantity = 0;
-            item.quantity = 0;
-        }
-    } else {
-        item.availableStock = 0;
-        item.maxQuantity = 0;
-    }
-};
+// FIXED: Validate quantity with stock protection
 const validateQuantity = (idx) => {
     const item = packingItems.value[idx];
+    
+    // First, update the available stock calculation
+    updateAvailableQuantityForEdit(idx);
+    
+    // Then validate against limits
     if (item.quantity > item.maxQuantity) {
         item.quantity = item.maxQuantity;
+        alert(`Cannot increase quantity above ${item.maxQuantity}. Limited by available stock.`);
     }
+    
     if (item.quantity < 1) {
         item.quantity = 1;
+        alert('Quantity must be at least 1.');
+    }
+    
+    // Final check to prevent negative stock
+    if (item.availableStock < 0) {
+        const matchingStock = item.colorStockData?.find(stock =>
+            parseInt(stock.size_id) === parseInt(item.sizeId)
+        );
+        
+        if (matchingStock) {
+            const maxAllowed = item.originalQuantity + matchingStock.available_quantity;
+            item.quantity = maxAllowed;
+            item.availableStock = 0;
+            alert(`Quantity adjusted to ${maxAllowed} to prevent negative stock.`);
+        }
     }
 };
 
 const addNewRow = () => {
     packingItems.value.push(createEmptyItem());
-
     nextTick(() => {
         const tableWrapper = document.querySelector('.table-wrapper');
         if (tableWrapper) {
@@ -652,10 +681,28 @@ const removeItem = (idx) => {
     packingItems.value.splice(idx, 1);
 };
 
-// Update packing slip
+// FIXED: Cancel edit - restore original data
+const cancelEdit = () => {
+    if (confirm('Are you sure you want to cancel editing? Any unsaved changes will be lost.')) {
+        packingItems.value = JSON.parse(JSON.stringify(originalPackingItems.value));
+        selectedCustomer.value = "";
+        selectedSlipNumber.value = "";
+        isEditing.value = false;
+        currentSlipId.value = null;
+        originalPackingItems.value = [];
+        
+        if (route.query.slip_number) {
+            router.replace({ query: {} });
+        }
+        
+        alert('Edit cancelled. All changes have been reverted.');
+    }
+};
+
+// FIXED: Update packing slip
 const updatePackingSlip = async () => {
     if (!canSave.value) {
-        alert("Please fill all required fields!");
+        alert("Cannot save: Some changes would cause negative stock. Please adjust quantities.");
         return;
     }
 
@@ -673,8 +720,6 @@ const updatePackingSlip = async () => {
                 quantity: item.quantity
             }))
         };
-
-        console.log('Update data:', updateData);
 
         await axios.put(`packingslip/update/${currentSlipId.value}/`, updateData);
 
@@ -702,8 +747,6 @@ const updateAndGetSlipData = async () => {
             quantity: item.quantity
         }))
     };
-
-    console.log('Update data for export:', updateData);
 
     await axios.put(`packingslip/update/${currentSlipId.value}/`, updateData);
 
@@ -735,7 +778,7 @@ const updateAndGetSlipData = async () => {
 // Update and export functions
 const updateAndExportExcel = async () => {
     if (!canSave.value) {
-        alert("Please fill all required fields!");
+        alert("Cannot save: Some changes would cause negative stock. Please adjust quantities.");
         return;
     }
 
@@ -755,7 +798,7 @@ const updateAndExportExcel = async () => {
 
 const updateAndExportPDF = async () => {
     if (!canSave.value) {
-        alert("Please fill all required fields!");
+        alert("Cannot save: Some changes would cause negative stock. Please adjust quantities.");
         return;
     }
 
@@ -773,7 +816,7 @@ const updateAndExportPDF = async () => {
     }
 };
 
-// Export functions (same as create component)
+// Export functions
 const exportExcel = (slipData) => {
     const wb = XLSX.utils.book_new();
     const wsData = [];
@@ -871,6 +914,25 @@ const exportPDF = (slipData) => {
     doc.save(`PackingSlip_${slipData.slip_number}.pdf`);
 };
 
+// Remove packing slip
+const removePackingSlip = async () => {
+    if (!confirm('Are you sure you want to remove this packing slip? This action cannot be undone.')) {
+        return;
+    }
+
+    loading.value = true;
+    try {
+        await axios.delete(`/packingslips/${currentSlipId.value}/`);
+        alert("Packing slip removed successfully!");
+        resetForm();
+    } catch (err) {
+        console.error("Error removing packing slip:", err);
+        alert("Error removing packing slip! Please check the console for details.");
+    } finally {
+        loading.value = false;
+    }
+};
+
 // Group by product function
 const groupByProduct = (lines) => {
     const grouped = {};
@@ -913,29 +975,29 @@ const groupByProduct = (lines) => {
     return result;
 };
 
-// Remove packing slip
-const removePackingSlip = async () => {
-    if (!confirm('Are you sure you want to remove this packing slip? This action cannot be undone.')) {
-        return;
-    }
-
-    loading.value = true;
+// Format date
+const formatDate = (dateString) => {
+    if (!dateString) return 'No date';
     try {
-        await axios.delete(`/packingslips/${currentSlipId.value}/`);
-        alert("Packing slip removed successfully!");
-        resetForm();
-    } catch (err) {
-        console.error("Error removing packing slip:", err);
-        alert("Error removing packing slip! Please check the console for details.");
-    } finally {
-        loading.value = false;
+        const date = new Date(dateString);
+        return date.toLocaleDateString();
+    } catch (error) {
+        console.error('Error formatting date:', error);
+        return 'Invalid date';
     }
 };
 
-// Cancel edit
-const cancelEdit = () => {
-    if (confirm('Are you sure you want to cancel editing? Any unsaved changes will be lost.')) {
-        resetForm();
+// Reset form
+const resetForm = () => {
+    selectedCustomer.value = "";
+    selectedSlipNumber.value = "";
+    packingItems.value = [];
+    isEditing.value = false;
+    currentSlipId.value = null;
+    originalPackingItems.value = [];
+    
+    if (route.query.slip_number) {
+        router.replace({ query: {} });
     }
 };
 
@@ -944,10 +1006,8 @@ onMounted(async () => {
     await Promise.all([
         loadCustomers(),
         loadProducts(),
-        loadAllPackingSlips() // Load all packing slips on component mount
+        loadAllPackingSlips()
     ]);
-
-    // Check for slip_number in URL after all data is loaded
     checkUrlForSlipNumber();
 });
 
@@ -969,16 +1029,7 @@ const loadProducts = async () => {
     }
 };
 
-// Reset form
-const resetForm = () => {
-    selectedCustomer.value = "";
-    selectedSlipNumber.value = "";
-    packingItems.value = [];
-    isEditing.value = false;
-    currentSlipId.value = null;
-};
-
-// Watch for route changes in case user navigates with browser back forward
+// Watch for route changes
 watch(
     () => route.query.slip_number,
     (newSlipNumber) => {
@@ -991,7 +1042,21 @@ watch(
 </script>
 
 <style scoped>
+.low-stock {
+    color: #ef4444;
+    font-weight: bold;
+}
 
+.stock-limit {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
+.quantity-input:invalid {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+}
 .icon-align {
     vertical-align: middle;
     position: relative;
