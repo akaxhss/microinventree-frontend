@@ -95,6 +95,11 @@
                                                 </span>
                                             </el-option>
                                         </el-select>
+                                        <!-- Fallback display for when color name is missing but ID exists -->
+                                        <div v-if="item.colorId && !getAvailableColors(idx).find(c => c.color_id === item.colorId)" 
+                                             class="text-red-500 text-xs mt-1">
+                                            Color ID: {{ item.colorId }} (Name not found)
+                                        </div>
                                     </td>
                                     <td>
                                         <el-select v-model="item.sizeId" @change="onSizeChange(idx)" filterable
@@ -115,10 +120,16 @@
                                     </td>
                                     <td class="quantity-col">
                                         <input type="number" v-model="item.quantity" min="1" :max="item.maxQuantity"
-                                            class="quantity-input" @input="validateQuantity(idx)" :disabled="loading" />
+                                            class="quantity-input" @input="validateQuantity(idx)" :disabled="loading" 
+                                            :title="`Allowed range: 1 to ${item.maxQuantity}`" />
                                     </td>
                                     <td class="available-col">
-                                        <span class="available-qty">{{ item.availableStock }}</span>
+                                        <span class="available-qty" :class="{ 'low-stock': item.availableStock <= 10 }">
+                                            {{ item.availableStock }}
+                                        </span>
+                                        <div v-if="item.maxQuantity < 9999" class="stock-limit">
+                                            Max: {{ item.maxQuantity }}
+                                        </div>
                                     </td>
                                     <td class="action-col">
                                         <button class="btn danger" @click="removeItem(idx)" :disabled="loading">
@@ -144,55 +155,55 @@
 
                     <!-- Action Buttons -->
                     <div class="form-actions">
-        <button class="btn update" @click="updatePackingSlip" :disabled="!canSave || loading">
-            <span v-if="loading">
-                <Icon name="loading" size="16" class="btn-icon icon-align" />
-                Updating...
-            </span>
-            <span v-else>
-                <Icon name="refresh" size="16" class="btn-icon icon-align" />
-                Update Packing Slip
-            </span>
-        </button>
+                        <button class="btn update" @click="updatePackingSlip" :disabled="!canSave || loading">
+                            <span v-if="loading">
+                                <Icon name="loading" size="16" class="btn-icon icon-align" />
+                                Updating...
+                            </span>
+                            <span v-else>
+                                <Icon name="refresh" size="16" class="btn-icon icon-align" />
+                                Update Packing Slip
+                            </span>
+                        </button>
 
-        <button class="btn remove" @click="removePackingSlip" :disabled="loading">
-            <span v-if="loading">
-                <Icon name="loading" size="16" class="btn-icon icon-align" />
-                Removing...
-            </span>
-            <span v-else>
-                <Icon name="trash" size="16" class="btn-icon icon-align" />
-                Remove Packing Slip
-            </span>
-        </button>
+                        <button class="btn remove" @click="removePackingSlip" :disabled="loading">
+                            <span v-if="loading">
+                                <Icon name="loading" size="16" class="btn-icon icon-align" />
+                                Removing...
+                            </span>
+                            <span v-else>
+                                <Icon name="trash" size="16" class="btn-icon icon-align" />
+                                Remove Packing Slip
+                            </span>
+                        </button>
 
-        <button class="btn excel" @click="updateAndExportExcel" :disabled="!canSave || loading">
-            <span v-if="loading">
-                <Icon name="loading" size="16" class="btn-icon icon-align" />
-                Saving...
-            </span>
-            <span v-else>
-                <Icon name="excel" size="16" class="btn-icon icon-align" />
-                Update & Download Excel
-            </span>
-        </button>
+                        <button class="btn excel" @click="updateAndExportExcel" :disabled="!canSave || loading">
+                            <span v-if="loading">
+                                <Icon name="loading" size="16" class="btn-icon icon-align" />
+                                Saving...
+                            </span>
+                            <span v-else>
+                                <Icon name="excel" size="16" class="btn-icon icon-align" />
+                                Update & Download Excel
+                            </span>
+                        </button>
 
-        <button class="btn pdf" @click="updateAndExportPDF" :disabled="!canSave || loading">
-            <span v-if="loading">
-                <Icon name="loading" size="16" class="btn-icon icon-align" />
-                Saving...
-            </span>
-            <span v-else>
-                <Icon name="document" size="16" class="btn-icon icon-align" />
-                Update & Download PDF
-            </span>
-        </button>
+                        <button class="btn pdf" @click="updateAndExportPDF" :disabled="!canSave || loading">
+                            <span v-if="loading">
+                                <Icon name="loading" size="16" class="btn-icon icon-align" />
+                                Saving...
+                            </span>
+                            <span v-else>
+                                <Icon name="document" size="16" class="btn-icon icon-align" />
+                                Update & Download PDF
+                            </span>
+                        </button>
 
-        <button class="btn cancel" @click="cancelEdit" :disabled="loading">
-            <Icon name="close" size="16" class="btn-icon icon-align" />
-            Cancel Edit
-        </button>
-    </div>
+                        <button class="btn cancel" @click="cancelEdit" :disabled="loading">
+                            <Icon name="close" size="16" class="btn-icon icon-align" />
+                            Cancel Edit
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -262,13 +273,30 @@ const sortedAvailableSizes = (sizes) => {
     });
 };
 
-// FIXED: Get available colors - allow same color for different sizes
+
 const getAvailableColors = (currentIndex) => {
     const currentItem = packingItems.value[currentIndex];
     if (!currentItem.productId || !currentItem.availableColors) {
         return sortedAvailableColors(currentItem.availableColors || []);
     }
-    return sortedAvailableColors(currentItem.availableColors || []);
+    
+    // Ensure all colors have proper names
+    let colorsWithNames = currentItem.availableColors.map(color => ({
+        ...color,
+        color_name: color.color_name || `Color #${color.color_id}`
+    }));
+    
+    // If current color ID exists but not in availableColors, add it with the stored name
+    if (currentItem.colorId && currentItem.colorName && 
+        !colorsWithNames.find(c => c.color_id === currentItem.colorId)) {
+        colorsWithNames.push({
+            color_id: currentItem.colorId,
+            color_name: currentItem.colorName,
+            total_quantity: 0
+        });
+    }
+    
+    return sortedAvailableColors(colorsWithNames);
 };
 
 // FIXED: Get available sizes - allow editing even when stock is 0
@@ -349,6 +377,31 @@ const getProductName = (productId) => {
     return product ? product.name : `Product #${productId}`;
 };
 
+// NEW: Helper function to get color name by ID
+const getColorNameById = async (colorId) => {
+    if (!colorId) return 'Unknown Color';
+    
+    try {
+        // First check if we already have this color in our products data
+        const allColors = [];
+        products.value.forEach(product => {
+            if (product.colors) {
+                allColors.push(...product.colors);
+            }
+        });
+        
+        const existingColor = allColors.find(c => c.id === colorId);
+        if (existingColor) return existingColor.name;
+        
+        // If not found, try to fetch from API
+        const response = await axios.get(`/colors/${colorId}/`);
+        return response.data.name || `Color #${colorId}`;
+    } catch (error) {
+        console.error(`Error fetching color name for ID ${colorId}:`, error);
+        return `Color #${colorId}`;
+    }
+};
+
 // Create empty item
 function createEmptyItem() {
     return {
@@ -397,7 +450,7 @@ const checkUrlForSlipNumber = () => {
     }
 };
 
-// FIXED: Load packing slip for editing with proper stock calculation
+// FIXED: Load packing slip for editing with proper color name handling
 const loadPackingSlipForEdit = async () => {
     if (!selectedSlipNumber.value) return;
 
@@ -425,6 +478,12 @@ const loadPackingSlipForEdit = async () => {
             originalPackingItems.value = [];
 
             for (const line of slipData.lines) {
+                // Get color name - use from API if available, otherwise fetch it
+                let colorName = line.color_name;
+                if (!colorName && line.color) {
+                    colorName = await getColorNameById(line.color);
+                }
+
                 const newItem = {
                     lineId: line.id,
                     productId: line.product,
@@ -437,7 +496,9 @@ const loadPackingSlipForEdit = async () => {
                     availableSizes: [],
                     stockData: [],
                     colorStockData: [],
-                    availableStock: 0
+                    availableStock: 0,
+                    // Store the color name for reference
+                    colorName: colorName
                 };
 
                 packingItems.value.push(newItem);
@@ -459,7 +520,7 @@ const loadPackingSlipForEdit = async () => {
     }
 };
 
-// FIXED: Load product data with proper stock calculation for editing
+// FIXED: Load product data with proper color name handling
 const loadProductDataForEdit = async (idx) => {
     const item = packingItems.value[idx];
     if (!item.productId) return;
@@ -475,7 +536,7 @@ const loadProductDataForEdit = async (idx) => {
             } else {
                 colorMap.set(stock.color_id, {
                     color_id: stock.color_id,
-                    color_name: stock.color_name,
+                    color_name: stock.color_name || `Color #${stock.color_id}`, // Fallback for missing names
                     total_quantity: stock.available_quantity
                 });
             }
@@ -588,7 +649,7 @@ const onProductChange = async (idx) => {
             } else {
                 colorMap.set(stock.color_id, {
                     color_id: stock.color_id,
-                    color_name: stock.color_name,
+                    color_name: stock.color_name || `Color #${stock.color_id}`, // Fallback
                     total_quantity: stock.available_quantity
                 });
             }

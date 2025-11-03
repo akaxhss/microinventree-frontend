@@ -131,14 +131,18 @@
                                     </button>
                                 </td>
                             </tr>
-                            <tr v-if="!isLastRowComplete">
-                                <td colspan="6" class="add-row">
-                                    <button class="btn add-row-btn" @click="addNewRow" :disabled="loading">
-                                        <Icon name="plus" size="16" class="btn-icon" />
-                                        Add New Row
-                                    </button>
-                                </td>
-                            </tr>
+                           <tr>
+  <td colspan="6" class="add-row">
+    <button
+      class="btn add-row-btn"
+      @click="addNewRow"
+      :disabled="loading || !canAddRow"
+    >
+      <Icon name="plus" size="16" class="btn-icon" />
+      Add New Row
+    </button>
+  </td>
+</tr>
                             <tr class="total-row">
                                 <td colspan="4"><strong>Total</strong></td>
                                 <td colspan="2"><strong>{{ totalQuantity }} QTY</strong></td>
@@ -201,9 +205,27 @@ let autoSaveTimeout = null;
 // ---- COMPUTED ----
 const sortedSuppliers = computed(() => [...suppliers.value].sort((a, b) => a.name.localeCompare(b.name)));
 const sortedProducts = computed(() => [...products.value].sort((a, b) => a.name.localeCompare(b.name)));
+const SIZE_ORDER = ["XS",
+  "S", "M", "L", "XL", "XXL", "XXXL",
+  "FREE SIZE", "S/M", "L/XL", "2/3XL"
+];
+
 const sortedSizes = computed(() => {
-    const order = { S: 1, M: 2, L: 3, XL: 4, XXL: 5, XXXL: 6 };
-    return [...sizes.value].sort((a, b) => (order[a.display_name] || 999) - (order[b.display_name] || 999));
+  // Sort using SIZE_ORDER priority first, then alphabetically as fallback
+  return [...sizes.value].sort((a, b) => {
+    const aIndex = SIZE_ORDER.indexOf(a.display_name?.toUpperCase());
+    const bIndex = SIZE_ORDER.indexOf(b.display_name?.toUpperCase());
+
+    // If both exist in SIZE_ORDER  sort by index
+    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+
+    // If only one exists  prioritize the one that exists
+    if (aIndex !== -1) return -1;
+    if (bIndex !== -1) return 1;
+
+    // Otherwise, alphabetical fallback
+    return a.display_name.localeCompare(b.display_name);
+  });
 });
 const sortedColors = computed(() => [...colors.value].sort((a, b) => a.name.localeCompare(b.name)));
 const totalQuantity = computed(() => stockItems.value.reduce((sum, i) => sum + (parseInt(i.quantity) || 0), 0));
@@ -416,6 +438,18 @@ const saveStock = async () => {
         loading.value = false;
     }
 };
+const canAddRow = computed(() => {
+  const last = stockItems.value[stockItems.value.length - 1];
+  
+  return Boolean(
+    (last && (
+      last.productId ||
+      last.sizeId ||
+      last.colorId ||
+      (last.quantity && Number(last.quantity) > 0)
+    ))
+  );
+});
 
 const resetForm = () => {
     if (confirm("Reset form? Unsaved changes will be lost.")) {
